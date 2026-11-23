@@ -1,5 +1,40 @@
 # Changelog
 
+## v4.4.0 — Design et frontend autonome
+**À faire dans un projet existant** : rien d'obligatoire. Pour un frontend déjà créé, demander à Claude d'ajouter le
+mode données simulées (section « Données simulées » d'`angular-conventions`) ; pour démarrer le design :
+`/top-factory:design-system`.
+
+### Design
+- Nouvel agent **`designer`** et skill **`design`** : design system, fiche et **maquette HTML autonome** par écran dans
+  `docs/design/`, registre `docs/design/design.json` (statuts **proposé → validé → implémenté → intégré**, source
+  `factory`, `claude-design` ou `figma`, lien). Aucun écran n'est implémenté sans design validé.
+- Commandes **`/design-system`**, **`/design-screen <écran>`**, **`/design-improve <écran> <demande>`**,
+  **`/design-link <url> [écran]`**, chacune avec arrêt « ⏸ » pour ta validation. Claude Design s'utilise par ses
+  commandes de Claude Code (`/design`, `/design-sync`) puis `/design-link` ; Figma par lien (et serveur MCP Figma s'il
+  est branché).
+- `frontend-dev` vérifie avant d'écrire un écran : il existe déjà (intégration de l'API seulement) → design validé
+  (implémentation fidèle) → sinon arrêt, le design passe d'abord par `designer`. `reviewer` vérifie la fidélité.
+
+### Frontend sans backend
+- L'architecte écrit le **contrat d'API** de la feature dans `docs/api/<slug>.md` (DTO, erreurs, exemples JSON) :
+  référence commune des deux équipes.
+- **`/feature … --front`** (ou `--back`) : périmètre d'une équipe ; spec et contrat réutilisés par l'autre équipe.
+- **Données simulées** Angular : `core/mock/` (intercepteur, `mockProviders`), jeux de données `src/mocks/<feature>/`,
+  configuration **`mock`** avec `fileReplacements` — aucun code simulé dans les builds normal et de production
+  (`/add-frontend` le met en place). `guard-frontend` refuse un import de données simulées hors de `core/mock/`.
+- **`/integrate <feature>`** : branche les écrans sur la vraie API, vérifie le contrat, revue et verdict avant commit.
+
+### Tableau de bord
+- Onglet **Design** par projet : design system, écrans par feature avec statut, source et **aperçu de la maquette**
+  (affichée isolée, sans script : un script dans une maquette ne s'exécute pas), page de chaque écran (maquette, fiche,
+  lien Figma ou Claude Design, Imprimer / PDF).
+- Process des features : étapes **Design** (agent `designer`, ta validation) et **Intégration API** (`/integrate`) ;
+  réponse prête pour valider le design. Le journal reconnaît les commandes de la factory (nom et périmètre seulement,
+  jamais le texte de la demande).
+- Documentation : sections **Design des écrans** et **Frontend sans backend**.
+- Tests : 233 scénarios en mode copie, 236 en mode plugin.
+
 ## v4.3.2 — Documents et réponses dans le tableau de bord
 **À faire dans un projet existant** : `/top-factory:init` (mise à jour) pour la nouvelle règle de lecture des `.env`
 dans `.claude/settings.json`.

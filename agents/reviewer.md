@@ -8,6 +8,7 @@ skills:
   - conventions
   - integrations
   - angular-conventions
+  - design
 ---
 
 Tu es Lead Tech exigeant, garant de l'architecture du projet. Tu relis, tu ne corriges pas.
@@ -32,6 +33,8 @@ depuis `<frontend>` : `npx ng build`, `npm run lint`, `npx ng test --watch=false
    `HttpClient` seulement dans les services), jeton jamais dans `localStorage` (transport conforme à l'option `auth-token` : cookie HttpOnly + CSRF, ou
    `sessionStorage`), aucune URL d'API absolue, composants de
    la bibliothèque `front-ui`, formulaires `front-forms`, erreurs du backend affichées, textes en français ;
+   **fidélité au design validé** (`docs/design/`, skill `design`) et statuts à jour ; **aucune donnée simulée dans le
+   build de production** (`mockProviders` vide hors configuration `mock`) ; respect du contrat `docs/api/<feature>.md` ;
    build, lint et tests verts.
 4. **Conformité** à la spec et au plan (rien d'oublié, rien en trop).
 5. **Sécurité** : `@PreAuthorize` sur chaque endpoint, identité issue du JWT (pas d'IDOR), validation des entrées,

@@ -38,7 +38,13 @@ case "$kind" in
   session_end)
     ev="session_end"; title="Session fermée"; detail="$(j .reason)" ;;
   prompt)
-    ev="prompt"; title="Nouvelle demande" ;;          # le texte de la demande n'est jamais enregistré
+    # Le texte de la demande n'est jamais enregistré : seulement le nom d'une commande de la factory, s'il y en a une.
+    ev="prompt"; title="Nouvelle demande"
+    c=$(j .prompt | head -n 1 | sed -nE 's#^[[:space:]]*/(top-factory:)?(feature|fix-bug|integrate|design-system|design-screen|design-improve|design-link|review-mr|add-frontend|add-integration|init|init-architecture)([[:space:]].*)?$#\2#p')
+    if [ -n "$c" ]; then
+      a="cmd:$c"; title="Commande /$c lancée"
+      case "$(j .prompt | head -n 1)" in *--front*) detail="périmètre : frontend" ;; *--back*) detail="périmètre : backend" ;; esac
+    fi ;;
   agent_start)
     a="$(j .agent_type)"; a="${a##*:}"; ev="agent_start"; title="Agent ${a:-inconnu} au travail" ;;
   agent_end)
@@ -74,7 +80,8 @@ esac
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 file="$home/events/$pid.jsonl"
 jq -cn --arg ts "$ts" --arg k "$ev" --arg t "$title" --arg d "$detail" --arg b "$branch" --arg s "$(j .session_id)" \
-  --arg ag "$a" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s} + (if $ag != "" then {agent: $ag} else {} end)' \
+  --arg ag "$a" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}
+    + (if ($ag | startswith("cmd:")) then {command: ($ag | ltrimstr("cmd:"))} elif $ag != "" then {agent: $ag} else {} end)' \
   >> "$file" 2>/dev/null
 # Rétention : 1000 derniers événements par projet.
 if [ "$(wc -l < "$file" 2>/dev/null | tr -d ' ')" -gt 1200 ]; then
@@ -113,9 +120,11 @@ case "$branch" in ""|HEAD|main|master|"$base") ;; *) F="« $feature »" ;; esac
 who() { case "$1" in
   spec-writer) echo "la rédactrice de specs" ;; architect) echo "l'architecte" ;; backend-dev) echo "le développeur backend" ;;
   frontend-dev) echo "le développeur frontend" ;; test-writer) echo "l'auteur des tests" ;; reviewer) echo "le relecteur" ;;
+  designer) echo "le designer" ;;
   *) echo "l'agent ${1:-inconnu}" ;; esac; }
 what() { case "$1" in
   spec-writer) echo "la spec" ;; architect) echo "le plan technique" ;; reviewer) echo "le verdict de la revue" ;;
+  designer) echo "les maquettes" ;;
   test-writer) echo "les tests" ;; backend-dev|frontend-dev) echo "le code" ;; *) echo "la proposition de Claude" ;; esac; }
 to_who() { local w; w=$(who "$1"); case "$w" in "le "*) echo "au ${w#le }" ;; *) echo "à $w" ;; esac; }
 cap() { printf '%s%s' "$(printf '%s' "${1:0:1}" | tr '[:lower:]' '[:upper:]')" "${1:1}"; }

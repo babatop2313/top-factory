@@ -34,9 +34,13 @@ Tu es architecte logiciel Java/Spring Boot + Angular. Tu ne modifies aucun fichi
 3. **Découpage par couche**, en suivant la section « Structure des packages » de la référence :
    pour chaque couche, les classes à créer ou modifier (chemin complet) et leur responsabilité,
    avec les règles RM-xx que chacune porte.
-4. **Contrat d'API** : tableau `Méthode | URL | Rôle | Request | Response | Codes HTTP`.
+4. **Contrat d'API** : tableau `Méthode | URL | Rôle | Request | Response | Codes HTTP`, puis, pour chaque endpoint, les
+   DTO (champs, types, contraintes de validation), les erreurs (`ProblemDetail` : code, champs) et **un exemple JSON**
+   de réponse et d'erreur. Ce contrat est enregistré dans `docs/api/<slug>.md` : le frontend peut le développer avec
+   des données simulées avant que le backend existe, il doit donc se suffire à lui-même.
 5. **Migration** `V<n+1>__<description>.sql` : SQL proposé.
-6. **Frontend** (si la feature a une interface et que `<frontend>` n'est pas « aucun ») : selon le skill
+6. **Frontend** (si la feature a une interface et que `<frontend>` n'est pas « aucun ») : écrans concernés (identifiants
+   du registre `docs/design/design.json`, existants ou à concevoir), puis, selon le skill
    `angular-conventions` et les options `front-ui`/`front-forms` — feature et routes (lazy, guards, rôles), pages et
    composants `ui/` (chemins complets sous `<frontend>/src/app/`), service et modèles alignés sur le contrat d'API,
    formulaires (validateurs alignés sur les DTO), gestion des erreurs. Si la feature a une interface mais qu'il n'y a pas

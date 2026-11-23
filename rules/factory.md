@@ -45,6 +45,8 @@
   d'autorisation inutiles à l'humain.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
+- **Design** : aucun écran n'est implémenté sans design validé (`docs/design/design.json`, skill `design`) ; un écran
+  qui existe déjà n'est pas refait, il est branché sur l'API. Le contrat d'API d'une feature est dans `docs/api/`.
 - **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw`,
   et les commandes Angular depuis `<frontend>` avec `npx ng …` / `npm run …` ;
   ne pas supposer un shell précis (pas de `&&` dans PowerShell 5, pas de syntaxe propre à bash 4 dans les scripts).
@@ -89,6 +91,8 @@
 | `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
 | `/feature <besoin>` | Point de départ vérifié → spec → plan → code → tests → revue |
 | `/dashboard [prune\|notifications]` | Ouvre le tableau de bord de tous les projets ; réglages des notifications |
+| `/design-system`, `/design-screen <écran>`, `/design-improve <écran> <demande>`, `/design-link <url> [écran]` | Design des écrans dans `docs/design/` (factory, Claude Design ou Figma), toujours validé par l'humain |
+| `/integrate <feature>` | Branche sur la vraie API un frontend développé sur des données simulées |
 | `/add-frontend [dossier]` | Une fois, si besoin : crée le frontend Angular (nom, version, bibliothèque `front-ui`, lint, proxy) |
 | `/add-integration <techno>` | Brancher une technologie (dépendances, configuration, Testcontainers) et la déclarer dans `stack.json` |
 | `/add-mcp-server` | Une fois, si besoin : infrastructure MCP du backend (Spring AI, profil `mcp-local` sécurisé) |

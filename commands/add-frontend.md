@@ -48,6 +48,10 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
      (notifications selon `front-ui`), enregistré dans `app.config.ts` avec `provideHttpClient(withInterceptors([...]))` ;
    - `src/app/core/layout/` : un en-tête minimal (nom de l'application), affiché par le composant racine avec
      `<router-outlet />` et, selon `front-ui`, le conteneur de notifications ;
+   - **mode données simulées** (section « Données simulées » d'`angular-conventions`) : `src/app/core/mock/` avec
+     `mock.providers.ts` (tableau vide), `mock.providers.mock.ts` et un `mock-api.interceptor.ts` qui laisse tout passer
+     tant qu'aucun jeu de données n'existe, dossier `src/mocks/` (`.gitkeep`), configuration `mock` (build et serve) dans
+     `angular.json` avec le `fileReplacements` ; vérifie `npx ng build --configuration mock` ;
    - dossiers `src/app/shared/` et `src/app/features/` (un `.gitkeep` chacun) ; page d'accueil générée par le CLI remplacée
      par une page simple, rangée comme toute page : `src/app/features/home/pages/home.ts` (route chargée en lazy) ;
    - **pas d'authentification ni d'écran métier** : ils viennent par `/feature`, à partir du contrat d'API du backend.
