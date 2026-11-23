@@ -11,7 +11,11 @@ Rien à faire dans un projet existant : mettre à jour le plugin.
     « tu valides ? »…) ; le détail reprend la dernière ligne « ⏸ ».
 - **Onglet Design** : quand des écrans ou le design system attendent ta validation, le panneau de réponse s'affiche
   en haut de l'onglet et sur la page de chaque écran proposé.
-- Tests : 237 scénarios en mode copie, 240 en mode plugin.
+- **« Agent inconnu »** : un agent repris (sans `agent_type` dans le hook) est retrouvé par son identifiant
+  (`agent_id`) ; à défaut, libellé neutre « Un agent a terminé ».
+- **Panneau de réponse** : l'actualisation automatique se met en pause tant qu'il est affiché (elle effaçait le choix en
+  cours) ; l'état « Attend ta validation » de l'en-tête du projet devient un bouton qui mène au panneau.
+- Tests : 239 scénarios en mode copie, 242 en mode plugin.
 
 ## v4.4.1 — Le tableau de bord tient les gros volumes
 Rien à faire dans un projet existant : mettre à jour le plugin ; la page se régénère au prochain événement

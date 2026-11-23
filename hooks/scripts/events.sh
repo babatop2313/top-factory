@@ -31,7 +31,16 @@ branch=$(git -C "$root" symbolic-ref --short -q HEAD 2>/dev/null || git -C "$roo
 j() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null | head -c 2000; }
 first_line() { printf '%s\n' "$1" | sed -E 's/^[[:space:]#>*]+//' | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
 
-title=""; detail=""; ev=""; a=""
+title=""; detail=""; ev=""; a=""; aid=""
+# Type d'agent : champ agent_type ; à défaut (agent repris, par exemple), retrouvé par son identifiant agent_id.
+agent_of() {
+  local t; t="$(j '.agent_type // .subagent_type')"; t="${t##*:}"
+  if [ -z "$t" ] && [ -n "$aid" ] && [ -f "$home/events/$pid.jsonl" ]; then
+    t=$(tail -n 300 "$home/events/$pid.jsonl" | jq -rs --arg id "$aid" \
+          '[.[] | objects | select(.agentId == $id and .agent != null)] | last | .agent // empty' 2>/dev/null)
+  fi
+  printf '%s' "$t"
+}
 case "$kind" in
   session_start)
     ev="session_start"; title="Session ouverte"; detail="$(j .source)" ;;
@@ -46,9 +55,9 @@ case "$kind" in
       case "$(j .prompt | head -n 1)" in *--front*) detail="périmètre : frontend" ;; *--back*) detail="périmètre : backend" ;; esac
     fi ;;
   agent_start)
-    a="$(j .agent_type)"; a="${a##*:}"; ev="agent_start"; title="Agent ${a:-inconnu} au travail" ;;
+    aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_start"; if [ -n "$a" ]; then title="Agent $a au travail"; else title="Un agent se met au travail"; fi ;;
   agent_end)
-    a="$(j .agent_type)"; a="${a##*:}"; ev="agent_end"; title="Agent ${a:-inconnu} a terminé"
+    aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_end"; if [ -n "$a" ]; then title="Agent $a a terminé"; else title="Un agent a terminé"; fi
     detail="$(first_line "$(j .last_assistant_message)")" ;;
   stop)
     msg="$(j .last_assistant_message)"
@@ -84,7 +93,8 @@ esac
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 file="$home/events/$pid.jsonl"
 jq -cn --arg ts "$ts" --arg k "$ev" --arg t "$title" --arg d "$detail" --arg b "$branch" --arg s "$(j .session_id)" \
-  --arg ag "$a" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}
+  --arg ag "$a" --arg aid "$aid" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}
+    + (if $aid != "" then {agentId: $aid} else {} end)
     + (if ($ag | startswith("cmd:")) then {command: ($ag | ltrimstr("cmd:"))} elif $ag != "" then {agent: $ag} else {} end)' \
   >> "$file" 2>/dev/null
 # Rétention : 1000 derniers événements par projet.

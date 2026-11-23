@@ -672,7 +672,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     const p = projects.find(x => x.id === id);
     if (!p) return emptyBox('triangle-alert', 'Projet introuvable', '');
     const d = p.design, pid = encodeURIComponent(p.id);
-    const head = `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a><div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${pill(p.state)}</div>
+    const head = `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a><div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${headPill(p)}</div>
       <p class="lead">Le design validé fait référence pour le frontend : rien n'est implémenté sans lui.</p>${projectTabs(p, 'design')}`;
     if (!d) return head + emptyBox('palette', 'Pas encore de design', `Lance <code>${esc(P)}design-system</code> puis <code>${esc(P)}design-screen &lt;écran&gt;</code>, ou enregistre un lien Figma ou Claude Design avec <code>${esc(P)}design-link &lt;url&gt;</code>.`);
     const ds = d.designSystem || {};
@@ -725,6 +725,10 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   // ---------- Rendu ----------
   const badge = (name, tone, size) => `<span class="badge tone-${tone}">${icon(name, size)}</span>`;
   const pill = (st) => `<span class="pill tone-${st.tone}">${icon(st.icon, 'sm')}${esc(st.label)}</span>`;
+  // Dans l'en-tête d'un projet : l'état « à toi » est un bouton qui mène au panneau de réponse.
+  const headPill = (p) => p.state.todo
+    ? `<button type="button" class="pill tone-${p.state.tone}" data-goto-reply="${esc(p.id)}" style="border:0;cursor:pointer" title="Aller au panneau de réponse">${icon(p.state.icon, 'sm')}${esc(p.state.label)} ${icon('arrow-right', 'sm')}</button>`
+    : pill(p.state);
   function stepper(f) {
     return `<div class="steps">${f.model.map((s, i) => {
       const k = f.st[i];
@@ -797,7 +801,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     else if (f && f.st.includes('active')) callout = `<div class="callout tone-sky">${icon('bot')}<div><b>${esc(f.current.label)} en cours.</b> ${esc(f.current.help || '')}</div></div>`;
     const others = p.features.filter(x => x !== f);
     return `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a>
-    <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${pill(p.state)}</div>
+    <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${headPill(p)}</div>
     <p class="lead mono" style="font-size:13px">${esc(p.path)}</p>
     ${projectTabs(p, 'suivi')}
     <h2 class="section">${icon('workflow')} ${f ? esc(f.kind) + ' : ' + esc(f.name) : 'Process'} ${f ? `<span class="hint">· ${f.done}/${f.total} étapes · <span class="mono">${esc(f.branch)}</span></span>` : ''}</h2>
@@ -965,11 +969,14 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     document.querySelectorAll('.doc-toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.querySelectorAll('.toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.title = (todo.length ? `(${todo.length}) ` : '') + 'Top Factory';
+    if (typeof drawAuto === 'function' && document.getElementById('auto')) try { drawAuto(); } catch (e) {}
   }
   let auto = true;
   try { auto = sessionStorage.getItem('tf-auto') !== 'off'; } catch (e) {}
   function drawAuto() {
-    document.getElementById('auto').innerHTML = icon(auto ? 'loader-circle' : 'circle-pause', 'sm') + (auto ? ' Actualisation auto : active' : ' Actualisation auto : en pause');
+    const replying = !!document.querySelector('.reply');
+    document.getElementById('auto').innerHTML = icon(auto && !replying ? 'loader-circle' : 'circle-pause', 'sm') +
+      (!auto ? ' Actualisation auto : en pause' : replying ? ' Actualisation en pause pendant ta réponse' : ' Actualisation auto : active');
     document.getElementById('updated').textContent = 'Mis à jour ' + ago(D.generated);
   }
   document.getElementById('auto').addEventListener('click', () => { auto = !auto; try { sessionStorage.setItem('tf-auto', auto ? 'on' : 'off'); } catch (e) {} drawAuto(); });
@@ -983,6 +990,13 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     if (theme === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', theme);
   }
   document.addEventListener('click', ev => {
+    const g = ev.target.closest('[data-goto-reply]');
+    if (g) {
+      const box = document.querySelector('.reply');
+      if (box) { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); const first = box.querySelector('[data-choice]'); if (first) first.focus(); }
+      else location.hash = '#/projet/' + encodeURIComponent(g.dataset.gotoReply);
+      return;
+    }
     const b = ev.target.closest('[data-theme-choice]'); if (!b) return;
     theme = b.dataset.themeChoice; try { localStorage.setItem('tf-theme', theme); } catch (e) {} drawTheme();
   });
@@ -993,7 +1007,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   setInterval(() => {
     drawAuto();
     const hh = location.hash || '';
-    const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+    const typing = (document.activeElement && document.activeElement.tagName === 'TEXTAREA') || !!document.querySelector('.reply');
     if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\/|\/design(\/|$)/.test(hh)) return;
     try { sessionStorage.setItem('tf-scroll', String(window.scrollY)); } catch (e) {}
     location.reload();

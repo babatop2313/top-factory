@@ -477,6 +477,11 @@ n=$(nlines)
 printf '%s' '{"agent_type":"reviewer"}' | bash "$H/events.sh" agent_start
 ok '[ "$(nlines)" = "$n" ]' "même agent relancé dans les 2 minutes : pas de notification en double"
 for a in architect reviewer reviewer; do printf '{"agent_type":"%s"}' "$a" | bash "$H/events.sh" agent_end; done
+printf '%s' '{"agent_type":"designer","agent_id":"ag-42"}' | bash "$H/events.sh" agent_start
+printf '%s' '{"agent_id":"ag-42","last_assistant_message":"Maquettes prêtes."}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .title)" = "Agent designer a terminé" ] && [ "$(evlast .agent)" = designer ]' "agent repris sans type : retrouvé par son identifiant"
+printf '%s' '{"last_assistant_message":"Fini."}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .title)" = "Un agent a terminé" ]' "agent sans type ni identifiant : libellé neutre (plus « inconnu »)"
 printf '%s' '{}' | bash "$H/events.sh" prompt
 n=$(nlines)
 jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
