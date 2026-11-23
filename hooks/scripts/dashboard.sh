@@ -30,72 +30,81 @@ case "${1:-}" in
     printf '%s\n' "$keep" > "$tmp" && mv "$tmp" "$reg" ;;
 esac
 
-# --- Projets : registre + 300 derniers événements + specs + Git ---
-projects="[]"
+# Les données passent par des fichiers, jamais par la ligne de commande : sous Windows, une ligne de commande est
+# limitée à 32 000 caractères environ (sous Linux, 128 Ko par argument), ce qu'atteignent vite les specs et maquettes.
+work=$(mktemp -d "$home/.gen.XXXXXX") || exit 1
+trap 'rm -rf "$work"' EXIT
+log="$home/dashboard.log"
+[ -f "$log" ] && [ "$(wc -c < "$log" | tr -d ' ')" -gt 100000 ] && tail -c 20000 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
+: > "$work/projects.jsonl"
+
+# --- Projets : registre + 300 derniers événements + specs + documents + design + Git ---
 for id in $(jq -r 'keys[]' "$reg" 2>/dev/null); do
   p=$(jq -r --arg id "$id" '.[$id].path' "$reg")
-  ev="[]"
-  [ -f "$home/events/$id.jsonl" ] && ev=$(tail -n 300 "$home/events/$id.jsonl" | jq -cs '[.[] | objects]' 2>/dev/null || echo "[]")
-  exists=false; specs="[]"; br=""; last=""
+  echo '[]' > "$work/ev.json"
+  if [ -f "$home/events/$id.jsonl" ]; then
+    tail -n 300 "$home/events/$id.jsonl" | jq -cs '[.[] | objects]' > "$work/ev.json" 2>/dev/null || echo '[]' > "$work/ev.json"
+  fi
+  exists=false; br=""; last=""
+  echo '[]' > "$work/specs.json"; : > "$work/docs.jsonl"; echo 'null' > "$work/design.json"
   if [ -d "$p" ]; then
     exists=true
     br=$(git -C "$p" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
     last=$(git -C "$p" log -1 --format='%s|%cI' 2>/dev/null | cut -c1-200 || true)
     if [ -d "$p/docs/specs" ]; then
-      specs=$(for f in "$p"/docs/specs/*.md; do
-                [ -f "$f" ] || continue
-                printf '%s\t%s\n' "$(basename "$f")" "$(date -r "$f" +%s 2>/dev/null || echo 0)"
-              done | sort -t"$(printf '\t')" -k2 -nr | head -20 \
-              | jq -Rcs 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], mtime: (.[1] | tonumber)})')
+      for f in "$p"/docs/specs/*.md; do
+        [ -f "$f" ] || continue
+        printf '%s\t%s\n' "$(basename "$f")" "$(date -r "$f" +%s 2>/dev/null || echo 0)"
+      done | sort -t"$(printf '\t')" -k2 -nr | head -20 \
+        | jq -Rcs 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], mtime: (.[1] | tonumber)})' > "$work/specs.json"
     fi
-  fi
-  # Documents lisibles dans la page : 20 specs et plans les plus récents, puis CLAUDE.md (200 Ko maximum chacun).
-  docs="[]"
-  if [ -d "$p" ]; then
-    list=$( { for f in "$p"/docs/specs/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
-                | sort -nr | head -20 | cut -f2-
-              for c in CLAUDE.md claude.md; do [ -f "$p/$c" ] && { echo "$p/$c"; break; }; done; } )
+    # Documents lisibles dans la page : 20 specs et plans les plus récents, puis CLAUDE.md (200 Ko maximum chacun).
+    { for f in "$p"/docs/specs/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
+        | sort -nr | head -20 | cut -f2-
+      for c in CLAUDE.md claude.md; do [ -f "$p/$c" ] && { echo "$p/$c"; break; }; done; } > "$work/list.txt"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       if command -v cygpath >/dev/null 2>&1; then url="file:///$(cygpath -m "$f")"; else url="file://$f"; fi
       url=$(printf '%s' "$url" | sed 's/ /%20/g')
-      head -c 200000 "$f" > "$home/.doc.$$" 2>/dev/null
+      head -c 200000 "$f" > "$work/doc"
       big=false; [ "$(wc -c < "$f" | tr -d ' ')" -gt 200000 ] && big=true
-      docs=$(jq -c --arg n "$(basename "$f")" --arg rel "${f#"$p"/}" --arg url "$url" \
-                --argjson m "$(date -r "$f" +%s 2>/dev/null || echo 0)" --rawfile c "$home/.doc.$$" --argjson big "$big" \
-             '. + [{name: $n, rel: $rel, url: $url, mtime: $m, content: $c, truncated: $big}]' <<< "$docs" 2>/dev/null || printf '%s' "$docs")
-    done <<< "$list"
-    rm -f "$home/.doc.$$"
-  fi
-  # Design : registre docs/design/design.json, design system, fiches et maquettes des écrans.
-  design="null"
-  dj="$p/docs/design/design.json"
-  if [ -f "$dj" ] && jq -e 'type == "object"' "$dj" >/dev/null 2>&1; then
-    design=$(jq -c '{designSystem: (.designSystem // null), screens: [(.screens // [])[] | objects]}' "$dj")
-    if [ -f "$p/docs/design/design-system.md" ]; then
-      head -c 150000 "$p/docs/design/design-system.md" > "$home/.doc.$$"
-      design=$(jq -c --rawfile c "$home/.doc.$$" '.designSystemDoc = $c' <<< "$design")
-    fi
-    n=$(jq '.screens | length' <<< "$design")
-    k=0
-    while [ "$k" -lt "$n" ] && [ "$k" -lt 60 ]; do
-      for kind in spec mockup; do
-        rel=$(jq -r --argjson k "$k" --arg f "$kind" '.screens[$k][$f] // empty' <<< "$design")
-        case "$rel" in ''|/*|*..*) continue ;; esac
-        f="$p/docs/design/$rel"; [ -f "$f" ] || continue
-        lim=150000; [ "$kind" = mockup ] && lim=400000
-        head -c "$lim" "$f" > "$home/.doc.$$"
-        design=$(jq -c --argjson k "$k" --arg f "${kind}Content" --rawfile c "$home/.doc.$$" '.screens[$k][$f] = $c' <<< "$design")
+      jq -cn --arg n "$(basename "$f")" --arg rel "${f#"$p"/}" --arg url "$url" \
+            --argjson m "$(date -r "$f" +%s 2>/dev/null || echo 0)" --rawfile c "$work/doc" --argjson big "$big" \
+         '{name: $n, rel: $rel, url: $url, mtime: $m, content: $c, truncated: $big}' >> "$work/docs.jsonl" 2>>"$log"
+    done < "$work/list.txt"
+    # Design : registre docs/design/design.json, design system, fiches et maquettes des écrans.
+    dj="$p/docs/design/design.json"
+    if [ -f "$dj" ] && jq -e 'type == "object"' "$dj" >/dev/null 2>&1; then
+      jq -c '{designSystem: (.designSystem // null), screens: [(.screens // [])[] | objects]}' "$dj" > "$work/design.json"
+      if [ -f "$p/docs/design/design-system.md" ]; then
+        head -c 150000 "$p/docs/design/design-system.md" > "$work/doc"
+        jq -c --rawfile c "$work/doc" '.designSystemDoc = $c' "$work/design.json" > "$work/d2" && mv "$work/d2" "$work/design.json"
+      fi
+      n=$(jq '.screens | length' "$work/design.json")
+      k=0
+      while [ "$k" -lt "$n" ] && [ "$k" -lt 60 ]; do
+        for kind in spec mockup; do
+          rel=$(jq -r --argjson k "$k" --arg f "$kind" '.screens[$k][$f] // empty' "$work/design.json")
+          case "$rel" in ''|/*|*..*) continue ;; esac
+          f="$p/docs/design/$rel"; [ -f "$f" ] || continue
+          lim=150000; [ "$kind" = mockup ] && lim=400000
+          head -c "$lim" "$f" > "$work/doc"
+          jq -c --argjson k "$k" --arg f "${kind}Content" --rawfile c "$work/doc" '.screens[$k][$f] = $c' "$work/design.json" > "$work/d2" \
+            && mv "$work/d2" "$work/design.json"
+        done
+        k=$((k + 1))
       done
-      k=$((k + 1))
-    done
-    rm -f "$home/.doc.$$"
+    fi
   fi
-  projects=$(jq -c --arg id "$id" --slurpfile r "$reg" --argjson ev "$ev" --argjson specs "$specs" --argjson docs "$docs" --argjson design "$design" \
-                --argjson exists "$exists" --arg br "$br" --arg last "$last" \
-    '. + [$r[0][$id] + {id: $id, exists: $exists, branch: $br, lastCommit: $last, specs: $specs, docs: $docs, design: $design, events: $ev}]' \
-    <<< "$projects")
+  jq -s '.' "$work/docs.jsonl" > "$work/docs.json" 2>>"$log" || echo '[]' > "$work/docs.json"
+  jq -cn --arg id "$id" --slurpfile r "$reg" --slurpfile ev "$work/ev.json" --slurpfile specs "$work/specs.json" \
+        --slurpfile docs "$work/docs.json" --slurpfile design "$work/design.json" \
+        --argjson exists "$exists" --arg br "$br" --arg last "$last" \
+    '$r[0][$id] + {id: $id, exists: $exists, branch: $br, lastCommit: $last,
+                   specs: $specs[0], docs: $docs[0], design: $design[0], events: $ev[0]}' >> "$work/projects.jsonl" 2>>"$log" \
+    || echo "$(date -u +%FT%TZ) projet $id ignoré (données illisibles)" >> "$log"
 done
+jq -s '.' "$work/projects.jsonl" > "$work/projects.json"
 
 # --- Documentation : commandes et agents lus dans le kit (toujours à jour) ---
 kit=$(kit_root)
@@ -107,15 +116,22 @@ docs_list() {
   done | jq -Rcs 'split("\n") | map(select(length > 0) | split("\t")
          | {name: .[0], description: ((.[1] // "") | gsub("^\"|\"$"; "")), hint: ((.[2] // "") | gsub("^\"|\"$"; ""))})'
 }
+docs_list commands > "$work/commands.json"
+docs_list agents > "$work/agents.json"
 prefix="/"; [ "$(kit_mode)" = "plugin" ] && prefix="/top-factory:"
 user=$(git config --global user.name 2>/dev/null | awk '{print $1}')
 [ -n "$user" ] || user="${USERNAME:-${USER:-}}"
-data=$(jq -cn --argjson p "$projects" --arg g "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$(kit_version)" \
+# Aucun « < » brut dans les données : rien ne peut fermer la balise <script>.
+if ! jq -cn --slurpfile p "$work/projects.json" --arg g "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$(kit_version)" \
           --arg prefix "$prefix" --arg user "$user" --arg home "$home" \
-          --argjson commands "$(docs_list commands)" --argjson agents "$(docs_list agents)" \
+          --slurpfile commands "$work/commands.json" --slurpfile agents "$work/agents.json" \
           '{generated: $g, kit: $v, prefix: $prefix, user: $user, home: $home,
-            projects: $p, docs: {commands: $commands, agents: $agents}}' \
-       | sed 's#<#\\u003c#g')   # aucun « < » brut dans les données : rien ne peut fermer la balise <script>
+            projects: $p[0], docs: {commands: $commands[0], agents: $agents[0]}}' 2>>"$log" \
+     | sed 's#<#\\u003c#g' > "$work/data.json" || [ ! -s "$work/data.json" ]; then
+  echo "$(date -u +%FT%TZ) génération impossible : la page précédente est conservée (détails ci-dessus)" >> "$log"
+  echo "Tableau de bord : génération impossible, voir $log" >&2
+  exit 1
+fi
 
 tmp="$out.$$.tmp"
 {
@@ -346,7 +362,7 @@ cat <<'TF_HTML_END'
 </div>
 <script id="data" type="application/json">
 TF_HTML_END
-printf '%s\n' "$data"
+cat "$work/data.json"
 cat <<'TF_HTML_END'
 </script>
 <script>

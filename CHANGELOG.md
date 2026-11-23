@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.4.1 — Le tableau de bord tient les gros volumes
+Rien à faire dans un projet existant : mettre à jour le plugin ; la page se régénère au prochain événement
+(ou `/top-factory:dashboard`).
+
+- **Correctif** : le tableau de bord restait vide dès que les specs, les maquettes ou l'historique devenaient longs.
+  Les données passaient par la ligne de commande de `jq`, limitée à 32 000 caractères environ sous Windows (128 Ko par
+  argument sous Linux). Elles passent désormais par des fichiers temporaires.
+- En cas d'échec, la page précédente est conservée et la cause est écrite dans `~/.top-factory/dashboard.log`
+  (un projet illisible est ignoré au lieu de vider toute la page).
+- `angular-conventions` : intercepteur simulé en classe (`HTTP_INTERCEPTORS` + `withInterceptorsFromDi()`), placé en
+  dernier pour que les erreurs simulées traversent les vrais intercepteurs (retour de Bibliothèque).
+- Test de non-régression : spec de 300 Ko et 300 événements.
+
 ## v4.4.0 — Design et frontend autonome
 **À faire dans un projet existant** : rien d'obligatoire. Pour un frontend déjà créé, demander à Claude d'ajouter le
 mode données simulées (section « Données simulées » d'`angular-conventions`) ; pour démarrer le design :
