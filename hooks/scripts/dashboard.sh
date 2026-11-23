@@ -937,7 +937,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         </tbody></table></section>
       <section id="d-fichiers" class="card block"><h3>Fichiers du projet</h3><table><tbody>
           <tr><td><code>.claude/factory.json</code></td><td>Architecture, branche d'intégration, dossiers backend et frontend. <b>Verrouillé</b> : écrit par <code>${esc(P)}init</code>, jamais modifié par Claude.</td></tr>
-          <tr><td><code>.claude/stack.json</code></td><td>Profil, options de conventions (mapping, erreurs, transport du JWT, bibliothèque d'interface…), intégrations actives, outil de design et son lien.</td></tr>
+          <tr><td><code>.claude/stack.json</code></td><td>Profil, options de conventions (mapping, erreurs, transport du JWT, bibliothèque d'interface…), intégrations actives et modules qui les utilisent (<code>modules</code>), outil de design et son lien.</td></tr>
           <tr><td><code>.claude/settings.json</code></td><td>Permissions partagées et activation du plugin (réécrit par le script de la factory).</td></tr>
           <tr><td><code>.claude/settings.local.json</code></td><td>Tes autorisations personnelles ; jamais commité.</td></tr>
           <tr><td><code>CLAUDE.md</code></td><td>Contexte métier, règles et commandes du projet : à compléter par toi.</td></tr>

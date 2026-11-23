@@ -28,7 +28,9 @@ depuis `<frontend>` : `npx ng build`, `npm run lint`, `npx ng test --watch=false
    n'a pas été modifié dans le diff et passe.
 2. **Conventions et intégrations** : socle et options du skill `conventions` ; pour chaque technologie touchée,
    la « Grille de revue » de sa référence d'intégration (code dans le package de son rôle, timeouts, résilience,
-   variables d'environnement). Une technologie ajoutée sans être déclarée dans `stack.json` est bloquante.
+   variables d'environnement). Une technologie ajoutée sans être déclarée dans `stack.json` est bloquante ; utilisée dans
+   un module absent du champ `modules` de `stack.json`, aussi. Un cache ou un outil MCP que la spec ne justifie pas
+   (« tout en cache », outil MCP ajouté par principe) est un point MAJEUR.
 3. **Frontend** (si touché) : skill `angular-conventions` — règles de dépendance (aucune feature n'en importe une autre,
    `HttpClient` seulement dans les services), jeton jamais dans `localStorage` (transport conforme à l'option `auth-token` : cookie HttpOnly + CSRF, ou
    `sessionStorage`), aucune URL d'API absolue, composants de

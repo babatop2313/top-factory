@@ -113,6 +113,30 @@ chk 2 "JPA dans un contrôleur" guard-architecture.sh "$(jp "$J/catalog/adapter/
 setstack '"postgresql"'
 chk 0 "kafka non déclaré dans stack.json : règle inactive" guard-architecture.sh "$(jp "$J/catalog/adapter/in/web/Pub2.java")"
 
+echo "== guard-architecture : modules concernés (stack.json, champ modules)"
+printf '{ "profile": "top", "integrations": ["postgresql", "redis"], "modules": { "redis": ["catalog"], "mcp": ["catalog"] } }' > "$T/.claude/stack.json"
+mk "$J/catalog/adapter/out/cache/BookCache.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 0 "redis dans un module choisi (catalog)" guard-architecture.sh "$(jp "$J/catalog/adapter/out/cache/BookCache.java")"
+mk "$J/loan/adapter/out/cache/LoanCache.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 2 "redis dans un module non choisi (loan) : refusé" guard-architecture.sh "$(jp "$J/loan/adapter/out/cache/LoanCache.java")"
+mk "$J/loan/adapter/out/persistence/LoanAnno.java" '    @Cacheable("loans")'
+chk 2 "@Cacheable dans un module non choisi : refusé" guard-architecture.sh "$(jp "$J/loan/adapter/out/persistence/LoanAnno.java")"
+mk "$J/config/CacheConfig.java" 'import org.springframework.data.redis.connection.RedisConnectionFactory;'
+chk 0 "configuration globale : toujours autorisée" guard-architecture.sh "$(jp "$J/config/CacheConfig.java")"
+mk "$J/catalog/adapter/in/mcp/CatalogMcpTools.java" 'import org.springframework.ai.mcp.annotation.McpTool;'
+chk 0 "outil MCP dans un module choisi" guard-architecture.sh "$(jp "$J/catalog/adapter/in/mcp/CatalogMcpTools.java")"
+mk "$J/loan/adapter/in/mcp/LoanMcpTools.java" '    @McpTool(name = "list_loans")'
+chk 2 "outil MCP dans un module non choisi : refusé" guard-architecture.sh "$(jp "$J/loan/adapter/in/mcp/LoanMcpTools.java")"
+printf '{ "profile": "top", "integrations": ["postgresql", "redis"], "modules": { "redis": [] } }' > "$T/.claude/stack.json"
+chk 2 "redis branché, aucun module pour le moment : refusé partout" guard-architecture.sh "$(jp "$J/catalog/adapter/out/cache/BookCache.java")"
+setstack '"postgresql", "redis"'
+chk 0 "sans champ modules : pas de restriction (projets existants)" guard-architecture.sh "$(jp "$J/loan/adapter/out/cache/LoanCache.java")"
+printf '{ "profile": "top", "integrations": ["postgresql", "redis"], "modules": { "redis": ["catalog"], "mcp": [] } }' > "$T/.claude/stack.json"
+chk_out "redis (testée) — modules : catalog" "session : modules de chaque intégration annoncés" session-start.sh '{}'
+chk_out "Serveur MCP : outils seulement dans les modules : aucun pour le moment." "session : modules du serveur MCP annoncés" session-start.sh '{}'
+rm -rf "$J/loan/adapter/out/cache" "$J/loan/adapter/in/mcp" "$J/catalog/adapter/in/mcp" "$J/catalog/adapter/out/cache" "$J/loan/adapter/out/persistence/LoanAnno.java" "$J/config/CacheConfig.java"
+setstack '"postgresql"'
+
 echo "== guard-architecture : intégrations (couche)"
 setarch couche
 setstack '"postgresql", "redis", "mail"'

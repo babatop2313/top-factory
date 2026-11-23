@@ -48,7 +48,10 @@ Tu es architecte logiciel Java/Spring Boot + Angular. Tu ne modifies aucun fichi
    formulaires (validateurs alignés sur les DTO), gestion des erreurs. Si la feature a une interface mais qu'il n'y a pas
    de frontend, dis-le en tête du plan (il se crée par `/add-frontend`).
 7. **Tests** : par couche, selon la section « Tests par couche » de la référence, reliés aux RM-xx.
-8. **Intégrations** : technologies utilisées, rôle de chaque classe technique (`roles.conf`), stratégie de résilience
+8. **Intégrations** : technologies utilisées **par cette feature seulement** (une technologie branchée n'est pas
+   utilisée partout : cache uniquement pour une lecture que la spec justifie, outil MCP uniquement si la spec le
+   demande), dans les modules autorisés par le champ `modules` de `stack.json` — un module absent de la liste se
+   signale à l'humain au lieu d'être utilisé ; rôle de chaque classe technique (`roles.conf`), stratégie de résilience
    (service indisponible, idempotence, cohérence avec la transaction).
 9. **Risques** : performance (N+1, pagination), sécurité, impacts sur les autres modules.
 10. **Ordre d'implémentation** : celui de la section « Ordre d'implémentation » de la référence. Si la feature a un

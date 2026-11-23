@@ -66,7 +66,33 @@ if [ "$in_config" -eq 0 ]; then
   done
 fi
 
-if [ -n "$violations" ] || [ -n "$integ_violations" ]; then
+# --- Modules concernés (.claude/stack.json, champ « modules ») : une intégration ou le serveur MCP ne s'utilise que
+# dans les modules choisis par l'humain, par exemple { "modules": { "redis": ["catalog"], "mcp": ["catalog"] } }.
+# Clé absente : pas de restriction (projets d'avant la v4.5.1). Les packages « config » restent toujours autorisés.
+scope_violations=""
+stackf="$root/.claude/stack.json"
+if [ "$in_config" -eq 0 ] && [ -f "$stackf" ]; then
+  for key in $(jq -r '(.modules // {}) | keys[]' "$stackf" 2>/dev/null | tr -d '\r'); do
+    case "$key" in
+      mcp) patterns='^import (static )?org\.springframework\.ai\.mcp\.|^[[:space:]]*@McpTool([^A-Za-z]|$)' ;;
+      *)
+        irules="$(kit_root)/skills/integrations/references/$key/rules.conf"
+        [ -f "$irules" ] || continue
+        patterns=$(tr -d '\r' < "$irules" | grep -vE '^[[:space:]]*(#|$)' | awk -F ' :: ' '{ printf "%s(%s)", (NR > 1 ? "|" : ""), $2 }') ;;
+    esac
+    [ -n "$patterns" ] || continue
+    bad=$(tr -d '\r' < "$file" | grep -nE "$patterns" || true)
+    [ -n "$bad" ] || continue
+    mods=$(jq -r --arg k "$key" '(.modules[$k] // [])[]' "$stackf" 2>/dev/null | tr -d '\r')
+    ok=0
+    for m in $mods; do [[ "/$rel" == */"$m"/* ]] && ok=1; done
+    [ "$ok" -eq 1 ] && continue
+    list=$(printf '%s' "$mods" | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    scope_violations+="• « $key » n'est prévu que pour les modules : ${list:-aucun pour le moment}."$'\n'"$bad"$'\n'
+  done
+fi
+
+if [ -n "$violations" ] || [ -n "$integ_violations" ] || [ -n "$scope_violations" ]; then
   if [ -n "$violations" ]; then
     echo "Violation de l'architecture « $arch » dans $shown :" >&2
     printf '%s' "$violations" >&2
@@ -77,6 +103,12 @@ if [ -n "$violations" ] || [ -n "$integ_violations" ]; then
     printf '%s' "$integ_violations" >&2
     echo "Place ce code dans le package du rôle indiqué par $(kit_path "skills/architecture/references/$arch/roles.conf")," >&2
     echo "ou dans un package config, et passe par un port (voir la référence de l'intégration)." >&2
+  fi
+  if [ -n "$scope_violations" ]; then
+    echo "Intégration utilisée dans un module qui n'en a pas besoin, dans $shown :" >&2
+    printf '%s' "$scope_violations" >&2
+    echo "Ce module n'utilise pas cette technologie : retire ce code. S'il en a vraiment besoin, propose-le à l'humain ;" >&2
+    echo "c'est lui qui décide d'ajouter le module au champ « modules » de .claude/stack.json." >&2
   fi
   exit 2
 fi

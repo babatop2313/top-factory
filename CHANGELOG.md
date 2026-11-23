@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.5.1 — Cache et MCP seulement là où c'est utile
+Mettre à jour le plugin. Dans un projet existant, déclarer les modules concernés dans `.claude/stack.json`, par
+exemple `"modules": { "redis": ["catalog"], "mcp": ["catalog"] }` (sans ce champ, rien ne change).
+
+- **Modules concernés** (`modules` dans `stack.json`) : à l'ajout d'une intégration (`/add-integration`) ou du serveur
+  MCP (`/add-mcp-server`), la factory liste les modules et te demande lesquels en ont besoin (« aucun pour le moment »
+  est valable) ; rien n'est coché par défaut.
+- **Hook d'architecture** : une bibliothèque d'intégration (Redis, `@Cacheable`…) ou un outil MCP (`@McpTool`) utilisé
+  dans un module absent de la liste est refusé, avec un message qui dit quoi faire ; la configuration globale reste
+  autorisée. Chaque session annonce les modules de chaque intégration et du serveur MCP.
+- **Pas tout en cache, pas de MCP par principe** : règle commune, spec-writer, architecte et relecteur — un cache se
+  justifie dans la spec (lecture fréquente et coûteuse, retard acceptable), un outil MCP aussi ; sinon, question ouverte
+  avec recommandation, et c'est toi qui décides. Le relecteur classe un cache ou un outil MCP injustifié en MAJEUR.
+- Tests : 258 scénarios en mode copie, 261 en mode plugin.
+
 ## v4.5.0 — Design au choix, code par parties
 Rien à faire dans un projet existant : mettre à jour le plugin (`/plugin marketplace update top`, puis `/plugin`).
 Pour enregistrer l'outil de design du projet : `/top-factory:design-link <url>`.

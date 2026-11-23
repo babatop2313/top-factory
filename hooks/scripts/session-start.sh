@@ -105,13 +105,19 @@ if [ -f "$stack" ]; then
       if [ -f "$iref" ]; then
         status=$(grep -m1 '^> Statut :' "$iref" | sed 's/^> Statut : //' | tr -d '\r')
         summary=$(awk '/^## Résumé[[:space:]]*$/{f=1; next} /^## /{if (f) exit} f && NF {print; exit}' "$iref" | tr -d '\r')
-        echo "  - $integ ($status) : $summary"
+        mods=$(jq -r --arg k "$integ" 'if (.modules // {}) | has($k) then ((.modules[$k] // []) | if length > 0 then join(", ") else "aucun pour le moment" end) else empty end' "$stack" 2>/dev/null | tr -d '\r')
+        echo "  - $integ ($status)${mods:+ — modules : $mods} : $summary"
       else
         echo "  - $integ : ⚠ aucune référence dans $(kit_path "skills/integrations/references/") — signale-le."
       fi
     done
   fi
   echo "Une technologie absente de cette liste ne s'ajoute que par /add-integration <techno>."
+  mcpmods=$(jq -r 'if (.modules // {}) | has("mcp") then ((.modules.mcp // []) | if length > 0 then join(", ") else "aucun pour le moment" end) else empty end' "$stack" 2>/dev/null | tr -d '\r')
+  [ -n "$mcpmods" ] && echo "Serveur MCP : outils seulement dans les modules : $mcpmods."
+  if jq -e '(.modules // {}) | length > 0' "$stack" >/dev/null 2>&1; then
+    echo "Modules indiqués : seuls ceux-là utilisent la technologie (hook). Un autre module n'en a pas besoin, sauf décision de l'humain."
+  fi
   # Outil de design (bloc « design ») : enregistré une fois par /design-link, valable d'une session à l'autre.
   dtool=$(jq -r '.design.tool // empty' "$stack" 2>/dev/null | tr -d '\r')
   dlink=$(jq -r '.design.link // empty' "$stack" 2>/dev/null | tr -d '\r')

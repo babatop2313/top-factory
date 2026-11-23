@@ -7,6 +7,9 @@ Rôle : `sortant-cache`. Le cache accélère des lectures ; il n'est **jamais** 
 
 ## Cas d'usage
 - Lectures fréquentes et coûteuses dont le résultat change peu (catalogue, référentiels, résultats calculés).
+  **Pas tout en cache** : chaque mise en cache se justifie dans la spec (fréquence, coût de la lecture, retard acceptable)
+  et se limite aux modules listés pour `redis` dans le champ `modules` de `stack.json`. Une lecture simple par
+  identifiant, une donnée qui change souvent ou un écran peu consulté n'ont pas besoin de cache.
 - Données éphémères partagées entre instances : limitation de débit, verrous courts, sessions.
 - **Ne pas** l'utiliser pour une donnée qui n'existe nulle part ailleurs (Redis peut perdre des données),
   ni comme file de messages fiable (préférer RabbitMQ ou Kafka). Un cache local (Caffeine) suffit si l'application
