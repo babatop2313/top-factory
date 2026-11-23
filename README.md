@@ -214,6 +214,15 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
   ni de texte de Claude.
 - Réglages : `~/.top-factory/config.json` (créé au premier événement) ; dossier personnalisable avec `TOP_FACTORY_HOME`.
 
+## Design et frontend autonome
+- **Design** : l'agent `designer` propose le design system, puis une fiche et une maquette par écran dans `docs/design/`
+  (`/top-factory:design-system`, `design-screen`, `design-improve`) ; un design fait dans **Claude Design** ou **Figma**
+  s'enregistre par son lien (`/top-factory:design-link`). Rien n'est implémenté sans design validé ; tout est visible
+  dans l'onglet Design du tableau de bord.
+- **Frontend sans backend** : contrat d'API dans `docs/api/`, `/top-factory:feature <besoin> --front` sur des données
+  simulées (`ng serve --configuration mock`, absentes du build de production), puis `/top-factory:integrate <feature>`
+  quand le backend est prêt.
+
 ## Frontend Angular
 Un projet démarre souvent sans frontend (`"frontend": null` dans `factory.json`). **`/top-factory:add-frontend`** le crée :
 - vous choisissez le **dossier**, le **nom** de l'application et la **version d'Angular** (`latest` ou une version majeure) ;

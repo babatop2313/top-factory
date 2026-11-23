@@ -81,6 +81,26 @@ export class BookService {
 - Écran de connexion : message d'erreur **générique** (« Identifiant ou mot de passe incorrect »), jamais
   « utilisateur inconnu » ; champ mot de passe masqué, avec bouton pour l'afficher ; aucun identifiant pré-rempli dans le code.
 
+## Données simulées (frontend sans backend)
+Pour développer et tester l'interface avant le backend, sur le contrat `docs/api/<feature>.md` :
+```
+src/app/core/mock/
+  mock.providers.ts          export const mockProviders: Provider[] = [];      ← build normal : aucun code simulé
+  mock.providers.mock.ts     intercepteur du mode mock, enregistré ici seulement
+  mock-api.interceptor.ts    sert les requêtes /api/... connues, laisse passer les autres (vraie API par le proxy)
+src/mocks/<feature>/         jeux de données JSON conformes au contrat (réponses, erreurs ProblemDetail)
+```
+- `app.config.ts` ajoute `...mockProviders` ; `angular.json` définit une configuration **`mock`** (build et serve) avec
+  `fileReplacements` : `mock.providers.ts` → `mock.providers.mock.ts`. Les builds normal et de production ne contiennent
+  donc **aucun** code ni jeu de données simulés. Lancement : `npx ng serve --configuration mock`.
+- L'intercepteur répond par endpoint (méthode + chemin), avec un délai réaliste (200–400 ms), les codes d'erreur du
+  contrat (400 avec erreurs par champ, 401, 403, 404, 409) et un état en mémoire pour les créations (la liste se met à
+  jour après un POST). Un endpoint absent des jeux de données part vers la vraie API.
+- **Le service HTTP de la feature est le même** qu'avec la vraie API : aucune condition « si mock » dans le code métier.
+- Authentification simulée : un utilisateur fictif par rôle, choisi dans les jeux de données ; jamais de vrai secret.
+- `/integrate <feature>` retire de l'intercepteur les endpoints que le backend expose ; les jeux de données restent
+  utilisables par les tests.
+
 ## Erreurs
 - `core/http/error.interceptor.ts` : traduit les erreurs HTTP en notifications (selon `front-ui`) ; lit le `ProblemDetail`
   (`title`, `detail`, erreurs par champ) ; message générique pour un 5xx ou un échec réseau, sans détail technique.

@@ -45,6 +45,14 @@ if printf '%s\n' "$content" | grep -qE '^[[:space:]]*@(Component|Directive|Pipe)
   [ -n "$bad" ] && violations+="• HttpClient dans un composant (ou une directive, un pipe) : l'accès HTTP passe par le service de la feature (data/), que le composant injecte."$'\n'"$bad"$'\n'
 fi
 
+# --- Données simulées : importées seulement dans app/core/mock/ (absentes des builds normal et de production) ---
+case "$app_rel" in
+  app/core/mock/*) ;;
+  *)
+    bad=$(printf '%s\n' "$content" | grep -nE "^[[:space:]]*(import|export)[^;]*from[[:space:]]*['\"][^'\"]*(/mocks/|/core/mock/mock-api|mock\.providers\.mock)" || true)
+    [ -n "$bad" ] && violations+="• données simulées importées hors de app/core/mock/ : elles n'entrent dans l'application que par mockProviders (configuration mock), jamais directement."$'\n'"$bad"$'\n' ;;
+esac
+
 # --- Une feature n'importe pas une autre feature ---
 # Résout les imports relatifs (./, ../) par rapport au dossier du fichier, puis compare la feature visée.
 resolve() {   # $1 = dossier (relatif à src/), $2 = chemin d'import relatif → chemin normalisé

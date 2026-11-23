@@ -29,7 +29,8 @@ au bon niveau de l'architecture.
 3. Vérifie qu'`ArchitectureTest` existe, qu'il commence par `// architecture: <architecture du projet>`, et qu'il passe.
 4. Frontend (si la feature en a un) : selon la section « Tests » du skill `angular-conventions` — services
    (`HttpTestingController`), intercepteurs et guards, pages et composants clés ; exécution depuis `<frontend>` avec
-   `npx ng test --watch=false`.
+   `npx ng test --watch=false`. Les jeux de données simulés (`src/mocks/<feature>/`, conformes au contrat) servent aussi
+   de données de test.
 5. Exécute avec `./mvnw clean test`, depuis `<backend>` (le `clean` écarte les classes compilées obsolètes). Un test rouge dû au code de production = signale le bug, ne modifie pas le code de production.
 
 ## Règles communes
