@@ -112,6 +112,18 @@ if [ -f "$stack" ]; then
     done
   fi
   echo "Une technologie absente de cette liste ne s'ajoute que par /add-integration <techno>."
+  # Outil de design (bloc « design ») : enregistré une fois par /design-link, valable d'une session à l'autre.
+  dtool=$(jq -r '.design.tool // empty' "$stack" 2>/dev/null | tr -d '\r')
+  dlink=$(jq -r '.design.link // empty' "$stack" 2>/dev/null | tr -d '\r')
+  case "$dlink" in https://*) ;; *) dlink="" ;; esac
+  if [ -z "$dtool" ] && [ -n "$dlink" ]; then
+    case "$dlink" in *figma.com*) dtool="figma" ;; *) dtool="claude-design" ;; esac
+  fi
+  case "$dtool" in
+    claude-design) echo "Design : Claude Design${dlink:+ — $dlink}. L'humain dessine dans l'outil ; l'agent designer reporte ses écrans dans docs/design/ (skill « design »)." ;;
+    figma) echo "Design : Figma${dlink:+ — $dlink}. L'humain dessine dans l'outil ; l'agent designer reporte ses écrans dans docs/design/ (skill « design »)." ;;
+    *) [ -n "$(frontend_rel)" ] && echo "Design : agent designer de la factory, quand l'humain le choisit (skill « design »). Lien Claude Design ou Figma : /design-link <url>." || true ;;
+  esac
 else
   echo "ℹ .claude/stack.json est absent (projet installé avant la v3.4) : conventions = socle + profil « top »,"
   echo "  aucune intégration déclarée. Signale à l'humain qu'il peut lancer /top-factory:init pour le créer."

@@ -285,6 +285,10 @@ chk_out "profil « top »" "profil de conventions annoncé" session-start.sh '{}
 chk_out "mapping=manuel" "options effectives : valeur par défaut du profil" session-start.sh '{}'
 printf '{ "profile": "top", "integrations": ["postgresql"], "conventions": { "mapping": "mapstruct" } }' > "$T/.claude/stack.json"
 chk_out "mapping=mapstruct (projet)" "options effectives : surcharge du projet" session-start.sh '{}'
+printf '{ "profile": "top", "integrations": [], "design": { "tool": "figma", "link": "https://www.figma.com/design/abc" } }' > "$T/.claude/stack.json"
+chk_out "Design : Figma — https://www.figma.com/design/abc" "outil et lien de design (stack.json) annoncés à chaque session" session-start.sh '{}'
+printf '{ "profile": "top", "integrations": [], "design": { "link": "javascript:alert(1)" } }' > "$T/.claude/stack.json"
+chk_out "Design : agent designer" "lien de design non https : ignoré" session-start.sh '{}'
 setstack '"postgresql", "redis"'
 setstack '"inconnue"'
 chk_out "aucune référence" "intégration sans référence signalée" session-start.sh '{}'
@@ -498,6 +502,18 @@ jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
 ok 'nlog | tail -n 1 | grep -q "travail terminé|.*Claude a terminé.*À toi de jouer"' "tâche entièrement terminée : notifiée"
 printf '%s' '{"notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}' | bash "$H/events.sh" notification
 ok '[ "$(evlast .kind)" = permission ] && nlog | tail -n 1 | grep -q "autorisation demandée|Claude attend ton autorisation pour utiliser Bash"' "autorisation demandée : outil nommé"
+# Hook PermissionRequest : ce qui est demandé, en français, sans le contenu ; aucune sortie (pas de décision).
+out=$(jq -cn --arg f "$T/frontend/src/app/features/catalog/catalog-list.page.ts" '{session_id: "s1", tool_name: "Edit", tool_input: {file_path: $f, old_string: "secret-ancien", new_string: "secret-nouveau"}}' | bash "$H/events.sh" permission_request)
+ok '[ -z "$out" ] && [ "$(evlast .kind)" = permission ] && [ "$(evlast .detail)" = "Claude demande l'"'"'autorisation de modifier le fichier frontend/src/app/features/catalog/catalog-list.page.ts." ]' "autorisation : fichier à modifier, chemin relatif au projet, aucune sortie"
+ok '! grep -q "secret-" "$TOP_FACTORY_HOME"/events/*.jsonl' "autorisation : le contenu de la modification n'est jamais enregistré"
+ok 'nlog | tail -n 1 | grep -q "autorisation demandée|Claude attend ton autorisation pour modifier un fichier (catalog-list.page.ts)"' "autorisation : notification claire, nom du fichier seulement"
+n=$(nlines)
+printf '%s' '{"session_id":"s1","notification_type":"permission_prompt","message":"Claude needs your permission"}' | bash "$H/events.sh" notification
+ok '[ "$(evlast .kind)" = permission ] && [ "$(nlines)" = "$n" ] && [ "$(grep -c "\"permission\"" "$TOP_FACTORY_HOME"/events/*.jsonl)" = 2 ]' "autorisation déjà enregistrée par PermissionRequest : pas de doublon"
+jq -cn '{session_id: "s2", tool_name: "Bash", tool_input: {command: "cd frontend && npm install primeng --registry https://x:MotDePasse@reg"}}' | bash "$H/events.sh" permission_request
+ok '[ "$(evlast .detail)" = "Claude demande l'"'"'autorisation de lancer la commande « npm install primeng »." ] && ! grep -q "MotDePasse" "$TOP_FACTORY_HOME"/events/*.jsonl' "autorisation : nom de la commande sans ses options ni ses arguments sensibles"
+jq -cn '{session_id: "s2", tool_name: "Bash", tool_input: {command: "export TOKEN=abc; curl -s x"}}' | bash "$H/events.sh" permission_request
+ok '[ "$(evlast .detail)" = "Claude demande l'"'"'autorisation de lancer la commande « export »." ] && ! grep -q "TOKEN=abc" "$TOP_FACTORY_HOME"/events/*.jsonl' "autorisation : affectation de variable jamais enregistrée"
 n=$(nlines)
 printf '%s' '{"notification_type":"idle_prompt","message":"Claude is waiting for your input"}' | bash "$H/events.sh" notification
 ok '[ "$(evlast .kind)" = attention ] && [ "$(nlines)" = "$n" ]' "attente simple : enregistrée, non notifiée"
@@ -536,6 +552,12 @@ ok '[ "$(DJ | jq -r ".projects[0].design.screens | length")" = 2 ] && DJ | jq -e
 ok '! DJ | grep -q "SECRET"' "design : un chemin avec « .. » n'est jamais lu"
 ok '! DJ | grep -q "<script>"' "design : maquette intégrée sans « < » brut"
 rm -rf "$T/docs/design" "$T/secret.txt"
+cp "$T/.claude/stack.json" "$T/stack.bak"
+jq '.design = {tool: "claude-design"}' "$T/stack.bak" > "$T/.claude/stack.json"
+mkdir -p "$T/.design-sync"; printf '{"project":{"url":"https://claude.ai/design/p/123"},"other":"javascript:x"}' > "$T/.design-sync/config.json"
+bash "$H/dashboard.sh"
+ok '[ "$(DJ | jq -r --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0].designTool | .tool + \" \" + .syncLink")" = "claude-design https://claude.ai/design/p/123" ]' "design : outil du projet (stack.json) et projet épinglé par /design-sync, lu seulement"
+mv "$T/stack.bak" "$T/.claude/stack.json"; rm -rf "$T/.design-sync"
 out=$(printf '%s' '{"prompt":"/top-factory:feature Catalogue --front avec mot de passe secret"}' | bash "$H/events.sh" prompt)
 ok '[ "$(evlast .command)" = feature ] && [ "$(evlast .detail)" = "périmètre : frontend" ] && ! tail -n 1 "$TOP_FACTORY_HOME"/events/*.jsonl | grep -q secret' "commande de la factory reconnue (nom et périmètre seulement, jamais le texte)"
 mv "$T/.claude/factory.json" "$T/fj2"; c=$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)

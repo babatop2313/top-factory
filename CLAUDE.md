@@ -18,7 +18,7 @@
 | `hooks/hooks.json`, `hooks/scripts/` | Hooks du plugin (`${CLAUDE_PLUGIN_ROOT}`) ; `install.sh` les adapte au mode copie |
 | `hooks/scripts/events.sh`, `dashboard.sh` | Journal d'activité et notifications (`~/.top-factory/`), page du tableau de bord ; jamais de sortie standard, jamais bloquants |
 | `rules/factory.md` | Règles communes (copiées dans `.claude/rules/` ou injectées par `session-start`) |
-| `templates/` | Fichiers créés dans les projets : `factory.json`, `stack.json`, `settings.json` (permissions seulement) |
+| `templates/` | Fichiers créés dans les projets : `factory.json`, `stack.json` (profil, options, intégrations ; bloc `design` ajouté par `/design-link`), `settings.json` (permissions seulement) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
 | `tools/install.sh` | Prépare ou met à jour un projet (`--mode plugin` ou `copy`, `--detect`, `--backend`, `--frontend`, `--integrations`) ; appelé par `/top-factory:init` |
 | `tools/removed-files.txt` | Fichiers retirés du kit, supprimés des projets en mode copie |

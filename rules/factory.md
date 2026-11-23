@@ -50,8 +50,14 @@
   commence par « ⏸ »** et dit précisément ce qui est attendu, par exemple : « ⏸ En attente de ta validation : le design
   des écrans catalogue-list et catalogue-register-dialog. » Ce symbole déclenche la notification et le panneau de
   réponse du tableau de bord ; sans lui, l'humain n'est pas prévenu.
-- **Design** : aucun écran n'est implémenté sans design validé (`docs/design/design.json`, skill `design`) ; un écran
-  qui existe déjà n'est pas refait, il est branché sur l'API. Le contrat d'API d'une feature est dans `docs/api/`.
+- **Design** : passer par le design est **le choix de l'humain**, écran par écran ; la factory vérifie ce qui existe et
+  **recommande**, elle ne lance pas le designer d'office. Un design validé s'implémente fidèlement ; un design seulement
+  proposé ne s'implémente jamais ; un écran qui existe déjà n'est pas refait, il est branché sur l'API (skill `design`).
+  L'outil de design du projet et son lien sont dans le bloc `design` de `.claude/stack.json` (`/design-link`).
+  Le contrat d'API d'une feature est dans `docs/api/`.
+- **Parties d'une feature** : backend et frontend se codent ensemble ou l'un après l'autre (choix de l'humain au plan) ;
+  chaque partie va jusqu'à son verdict et son commit. L'avancement est dans la section « Avancement » de
+  `docs/specs/<slug>-plan.md` ; `/feature --resume <slug>` reprend la partie restante.
 - **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw`,
   et les commandes Angular depuis `<frontend>` avec `npx ng …` / `npm run …` ;
   ne pas supposer un shell précis (pas de `&&` dans PowerShell 5, pas de syntaxe propre à bash 4 dans les scripts).
@@ -94,9 +100,12 @@
 |---|---|
 | `/init-architecture <module>` | Une fois au démarrage : ArchUnit, squelette du premier module |
 | `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
-| `/feature <besoin>` | Point de départ vérifié → spec → plan → code → tests → revue |
+| `/feature <besoin>` | Point de départ vérifié → spec → plan (et ordre du code) → design au choix → code, tests, revue par partie |
+| `/feature --resume <slug> [--back \| --front]` | Reprend la partie restante d'une feature (spec, plan et contrat réutilisés) |
 | `/dashboard [prune\|notifications]` | Ouvre le tableau de bord de tous les projets ; réglages des notifications |
-| `/design-system`, `/design-screen <écran>`, `/design-improve <écran> <demande>`, `/design-link <url> [écran]` | Design des écrans dans `docs/design/` (factory, Claude Design ou Figma), toujours validé par l'humain |
+| `/design-project` | Design en début de projet : design system et tout ou partie des écrans, avant les features |
+| `/design-system`, `/design-screen <écran>`, `/design-improve <écran> <demande>` | Design des écrans dans `docs/design/` (factory, Claude Design ou Figma), toujours validé par l'humain |
+| `/design-link <url> [écran]` | Enregistre une fois l'outil de design et son lien dans `stack.json` (ou le lien d'un écran) |
 | `/integrate <feature>` | Branche sur la vraie API un frontend développé sur des données simulées |
 | `/add-frontend [dossier]` | Une fois, si besoin : crée le frontend Angular (nom, version, bibliothèque `front-ui`, lint, proxy) |
 | `/add-integration <techno>` | Brancher une technologie (dépendances, configuration, Testcontainers) et la déclarer dans `stack.json` |

@@ -96,12 +96,23 @@ for id in $(jq -r 'keys[]' "$reg" 2>/dev/null); do
       done
     fi
   fi
+  # Outil de design du projet (.claude/stack.json, bloc « design ») ; à défaut, projet Claude Design épinglé par
+  # /design-sync (.design-sync/config.json, lu seulement pour en tirer un lien https).
+  echo '{}' > "$work/dtool.json"
+  if [ -d "$p" ]; then
+    jq -c '(.design // {}) | {tool: (.tool // ""), link: (.link // "")} | with_entries(select(.value | type == "string"))' \
+      "$p/.claude/stack.json" > "$work/dtool.json" 2>/dev/null || echo '{}' > "$work/dtool.json"
+    if [ -f "$p/.design-sync/config.json" ]; then
+      sync=$(jq -r '[.. | strings | select(test("^https://(claude\\.ai|claude\\.com)/"))][0] // empty' "$p/.design-sync/config.json" 2>/dev/null | head -n 1)
+      [ -n "$sync" ] && jq -c --arg s "$sync" '. + {syncLink: $s}' "$work/dtool.json" > "$work/d2" 2>/dev/null && mv "$work/d2" "$work/dtool.json"
+    fi
+  fi
   jq -s '.' "$work/docs.jsonl" > "$work/docs.json" 2>>"$log" || echo '[]' > "$work/docs.json"
   jq -cn --arg id "$id" --slurpfile r "$reg" --slurpfile ev "$work/ev.json" --slurpfile specs "$work/specs.json" \
-        --slurpfile docs "$work/docs.json" --slurpfile design "$work/design.json" \
+        --slurpfile docs "$work/docs.json" --slurpfile design "$work/design.json" --slurpfile dtool "$work/dtool.json" \
         --argjson exists "$exists" --arg br "$br" --arg last "$last" \
     '$r[0][$id] + {id: $id, exists: $exists, branch: $br, lastCommit: $last,
-                   specs: $specs[0], docs: $docs[0], design: $design[0], events: $ev[0]}' >> "$work/projects.jsonl" 2>>"$log" \
+                   specs: $specs[0], docs: $docs[0], design: $design[0], designTool: $dtool[0], events: $ev[0]}' >> "$work/projects.jsonl" 2>>"$log" \
     || echo "$(date -u +%FT%TZ) projet $id ignoré (données illisibles)" >> "$log"
 done
 jq -s '.' "$work/projects.jsonl" > "$work/projects.json"
@@ -253,6 +264,7 @@ cat <<'TF_HTML_END'
   .step.s-active .state { color: var(--sky); } .step.s-waiting .state { color: var(--amber); font-weight: 560; } .step.s-done .state { color: var(--text-2); }
   .spin { animation: spin 1.6s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
   .callout { margin-top: 18px; padding: 12px 14px; border-radius: 12px; display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+  .callout ul.plain { margin: 4px 0 8px; padding-left: 18px; } .callout ul.plain li { margin: 2px 0; }
   .two-cols { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px; padding: 16px 18px; }
   .kv dt { color: var(--text-3); } .kv dd { margin: 0; }
@@ -461,8 +473,8 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     { id: 'branch', label: 'Branche', icon: 'git-branch', help: 'Une branche dédiée, partie de la branche d\'intégration à jour.' },
     { id: 'spec', label: 'Spec', icon: 'file-text', agents: ['spec-writer'], gate: 'valider la spec', ask: 'valides la spec', help: 'Le besoin reformulé : règles, cas limites, questions ouvertes.' },
     { id: 'plan', label: 'Plan technique', icon: 'compass', agents: ['architect'], gate: 'valider le plan technique', ask: 'valides le plan technique', help: 'Couches, classes, migrations, contrat d\'API.' },
-    { id: 'design', label: 'Design', icon: 'palette', agents: ['designer'], gate: 'valider le design', ask: 'valides le design', help: 'Fiche et maquette de chaque écran, à valider avant le code.' },
-    { id: 'code', label: 'Code', icon: 'code', agents: ['backend-dev', 'frontend-dev'], back: true, help: 'Implémentation backend puis frontend, contrôlée par les garde-fous.' },
+    { id: 'design', label: 'Design', icon: 'palette', agents: ['designer'], gate: 'valider le design', ask: 'valides le design', help: 'Facultatif, à ton choix : fiche et maquette de chaque écran (factory, Claude Design ou Figma), à valider avant le code.' },
+    { id: 'code', label: 'Code', icon: 'code', agents: ['backend-dev', 'frontend-dev'], back: true, help: 'Backend et frontend ensemble, ou une partie après l\'autre : chacune va jusqu\'à sa revue et son commit.' },
     { id: 'tests', label: 'Tests', icon: 'flask-conical', agents: ['test-writer'], help: 'Tests par couche, intégration avec Testcontainers, ArchUnit.' },
     { id: 'integration', label: 'Intégration API', icon: 'plug', command: 'integrate', help: 'Le frontend quitte les données simulées pour la vraie API.' },
     { id: 'review', label: 'Revue', icon: 'search-check', agents: ['reviewer'], gate: 'décider de la suite à partir du verdict de la revue', ask: 'décides de la suite à partir du verdict de la revue', help: 'Architecture, sécurité, qualité, tests.' },
@@ -659,7 +671,29 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   // ---------- Design ----------
   const DSTATUS = { 'proposé': { tone: 'amber', icon: 'circle-pause', label: 'Proposé — à valider' }, 'validé': { tone: 'accent', icon: 'check', label: 'Validé' },
     'implémenté': { tone: 'sky', icon: 'code', label: 'Implémenté (données simulées)' }, 'intégré': { tone: 'emerald', icon: 'plug', label: 'Intégré à l\'API' } };
-  const SOURCE = { factory: ['palette', 'Factory (agent designer)'], 'claude-design': ['sparkles', 'Claude Design'], figma: ['figma', 'Figma'] };
+  const SOURCE = { factory: ['palette', 'Factory (agent designer)'], 'claude-design': ['sparkles', 'Claude Design'], figma: ['figma', 'Figma'],
+    aucun: ['circle', 'Sans design (ton choix)'] };
+  // Liens externes : https uniquement (jamais javascript:, data:…).
+  const safeUrl = u => /^https:\/\/[^\s"'<>]+$/.test(u || '') ? u : '';
+  // Outil de design du projet : bloc « design » de .claude/stack.json (lien enregistré une fois par /design-link).
+  function designTool(p) {
+    const t = p.designTool || {};
+    const link = safeUrl(t.link);
+    const tool = SOURCE[t.tool] && t.tool !== 'aucun' ? t.tool : link ? (/figma\.com/.test(link) ? 'figma' : 'claude-design') : 'factory';
+    const sync = tool === 'claude-design' && !link ? safeUrl(t.syncLink) : '';
+    return { tool, link: link || sync, fromSync: !!sync };
+  }
+  function toolCard(p) {
+    const t = designTool(p), x = SOURCE[t.tool];
+    const text = t.tool === 'factory'
+      ? `Les écrans sont proposés par l'agent <b>designer</b>, quand tu le choisis. Tu dessines dans Claude Design ou Figma ? Enregistre son lien une fois : <code>${esc(P)}design-link &lt;url&gt;</code>.`
+      : t.link
+        ? `Le design se fait dans <b>${esc(x[1])}</b>${t.fromSync ? ' (projet épinglé par <code>/design-sync</code>)' : ''}. Le lien est enregistré dans <code>.claude/stack.json</code> : il reste valable d'une session à l'autre.`
+        : `Le design se fait dans <b>${esc(x[1])}</b>, mais aucun lien n'est enregistré : <code>${esc(P)}design-link &lt;url&gt;</code>.`;
+    return `<div class="card" style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="row" style="gap:12px;align-items:center">${badge(x[0], 'accent')}<div><b>Outil de design : ${esc(x[1])}</b><div class="faint" style="font-size:13.5px">${text}</div></div></div>
+      ${t.link ? `<a class="btn" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc(x[1])}</a>` : ''}</div>`;
+  }
   const dpill = st => { const d = DSTATUS[st] || { tone: 'slate', icon: 'circle', label: st || 'Sans statut' }; return `<span class="pill tone-${d.tone}">${icon(d.icon, 'sm')}${esc(d.label)}</span>`; };
   const srcChip = src => { const x = SOURCE[src] || ['circle', src || '—']; return `<span class="chip">${icon(x[0], 'sm')} ${esc(x[1])}</span>`; };
   const frame = (html, cls) => `<iframe class="${cls}" sandbox="" referrerpolicy="no-referrer" loading="lazy" srcdoc="${esc(html)}" title="Maquette"></iframe>`;
@@ -673,8 +707,8 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     if (!p) return emptyBox('triangle-alert', 'Projet introuvable', '');
     const d = p.design, pid = encodeURIComponent(p.id);
     const head = `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a><div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${headPill(p)}</div>
-      <p class="lead">Le design validé fait référence pour le frontend : rien n'est implémenté sans lui.</p>${projectTabs(p, 'design')}`;
-    if (!d) return head + emptyBox('palette', 'Pas encore de design', `Lance <code>${esc(P)}design-system</code> puis <code>${esc(P)}design-screen &lt;écran&gt;</code>, ou enregistre un lien Figma ou Claude Design avec <code>${esc(P)}design-link &lt;url&gt;</code>.`);
+      <p class="lead">Un design validé fait référence pour le frontend. Passer par le design reste ton choix, feature par feature.</p>${projectTabs(p, 'design')}${toolCard(p)}`;
+    if (!d) return head + emptyBox('palette', 'Pas encore de design', `Pour tout préparer avant les features : <code>${esc(P)}design-project</code>. Sinon, écran par écran : <code>${esc(P)}design-system</code> puis <code>${esc(P)}design-screen &lt;écran&gt;</code>.`);
     const ds = d.designSystem || {};
     const groups = {};
     d.screens.forEach((sc, k) => { (groups[sc.feature || 'Autres écrans'] = groups[sc.feature || 'Autres écrans'] || []).push({ sc, k }); });
@@ -689,7 +723,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <h2 class="section">${icon('swatch-book')} Design system</h2>
       <div class="card" style="padding:16px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
         <div class="row" style="flex-wrap:wrap">${dpill(ds.status)} ${srcChip(ds.source || 'factory')}</div>
-        <div class="row">${ds.link ? `<a class="btn" href="${esc(ds.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc((SOURCE[ds.source] || ['', 'l\'outil'])[1])}</a>` : ''}
+        <div class="row">${safeUrl(ds.link) ? `<a class="btn" href="${esc(ds.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc((SOURCE[ds.source] || ['', 'l\'outil'])[1])}</a>` : ''}
           ${d.designSystemDoc ? `<a class="btn" href="#/projet/${pid}/design/system">${icon('eye', 'sm')} Voir le design system</a>` : ''}</div></div>
       ${Object.entries(groups).map(([g, list]) => `<h2 class="section">${icon('layout-template')} ${esc(g)} <span class="hint">· ${list.length} écran${list.length > 1 ? 's' : ''}</span></h2>
         <div class="screens">${list.map(({ sc, k }) => `<a class="card screen-card" href="#/projet/${pid}/design/${k}">
@@ -713,7 +747,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(sc.title || sc.id)}</h1>${dpill(sc.status)}</div>
       <p class="lead mono" style="font-size:13px">${esc(sc.id)}${sc.feature ? ' · feature ' + esc(sc.feature) : ''}${sc.updated ? ' · mis à jour le ' + esc(sc.updated) : ''}</p>
       <div class="doc-actions">${srcChip(sc.source)}
-        ${sc.link ? `<a class="btn" href="${esc(sc.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc((SOURCE[sc.source] || ['', 'l\'outil'])[1])}</a>` : ''}
+        ${safeUrl(sc.link) ? `<a class="btn" href="${esc(sc.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc((SOURCE[sc.source] || ['', 'l\'outil'])[1])}</a>` : ''}
         <button type="button" class="btn" onclick="window.print()">${icon('printer', 'sm')} Imprimer / PDF</button></div>
       ${sc.status === 'proposé' ? `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Ce design attend ta validation.</b> Choisis ta réponse ci-dessous et colle-la dans ta session Claude ; pour l'améliorer plus tard : <code>${esc(P)}design-improve ${esc(sc.id)} &lt;demande&gt;</code>.</div></div>${replyPanel(p, null, 'design')}` : ''}
       <h2 class="section">${icon('eye')} Maquette</h2>
@@ -797,7 +831,15 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     let callout = '';
     if (f && f.waiting >= 0) callout = `<div class="callout tone-amber">${icon('circle-pause')}<div><b>À toi : ${esc(f.model[f.waiting].gate)}.</b><br>Relis le document, choisis ta réponse ci-dessous, copie-la et colle-la dans ta session Claude.</div></div>` + replyPanel(p, f);
     else if (p.key === 'validation') callout = `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Claude attend ta validation.</b></div></div>` + replyPanel(p, null);
-    else if (p.key === 'permission') callout = `<div class="callout tone-amber">${icon('lock-keyhole')}<div><b>Claude attend ton autorisation.</b><br>${esc((p.last || {}).detail || '')}<br><span class="faint">Réponds à la demande dans ta session (ou depuis ton téléphone avec Remote Control).</span></div></div>`;
+    else if (p.key === 'permission') {
+      // Ancien format (avant la v4.5) : message anglais de Claude Code, remplacé par une phrase claire.
+      const det = /needs your permission|permission to use/i.test((p.last || {}).detail || '') ? 'Claude demande ton autorisation pour continuer.' : ((p.last || {}).detail || 'Claude demande ton autorisation pour continuer.');
+      callout = `<div class="callout tone-amber">${icon('lock-keyhole')}<div><b>${esc(det)}</b>
+        <p style="margin:6px 0 4px">Ce n'est pas une validation de la factory : c'est <b>Claude Code</b> qui demande l'autorisation d'agir. Réponds dans ta session
+        (ou depuis ton téléphone avec Remote Control) :</p>
+        <ul class="plain"><li><b>1 · Oui</b> — autorise cette fois ;</li><li><b>2 · Oui, et ne plus demander</b> — autorise ce type d'action dans ce projet (enregistré dans <code>.claude/settings.local.json</code>) ;</li><li><b>3 · Non</b> — refuse, et dis à Claude ce qu'il doit faire autrement.</li></ul>
+        <span class="faint">Ce tableau de bord ne répond pas à ta place : une page web qui autorise des commandes contournerait tes garde-fous.</span></div></div>`;
+    }
     else if (f && f.st.includes('active')) callout = `<div class="callout tone-sky">${icon('bot')}<div><b>${esc(f.current.label)} en cours.</b> ${esc(f.current.help || '')}</div></div>`;
     const others = p.features.filter(x => x !== f);
     return `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a>
@@ -840,11 +882,12 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     const ag = (D.docs.agents || []);
     const flow = [
       ['lightbulb', 'file-text', 'Spec', 'L\'agent spec-writer reformule ton besoin : règles, cas limites, questions.', true],
-      ['', 'compass', 'Plan', 'L\'architecte conçoit la solution selon l\'architecture du projet.', true],
-      ['', 'code', 'Code', 'Les développeurs backend et frontend implémentent, contrôlés en continu par les garde-fous.', false],
+      ['', 'compass', 'Plan', 'L\'architecte conçoit la solution et le contrat d\'API ; tu choisis l\'ordre du code : les deux ensemble, backend d\'abord ou frontend d\'abord.', true],
+      ['', 'palette', 'Design (au choix)', 'La factory regarde ce qui existe et recommande ; tu choisis : designer de la factory, Claude Design ou Figma, ou sans design.', true],
+      ['', 'code', 'Code', 'Les développeurs backend et frontend implémentent, ensemble ou une partie après l\'autre, contrôlés en continu par les garde-fous.', false],
       ['', 'flask-conical', 'Tests', 'Tests de chaque couche, intégration avec de vraies dépendances, règles d\'architecture.', false],
       ['', 'search-check', 'Revue', 'Le relecteur vérifie architecture, sécurité et qualité ; tu lis le verdict.', true],
-      ['', 'git-pull-request', 'Commit et PR', 'Après ton accord : commit, branche poussée ; tu ouvres la PR et tu fusionnes.', false],
+      ['', 'git-pull-request', 'Commit et PR', 'Après ton accord : commit de la partie, branche poussée ; tu ouvres la PR et tu fusionnes. Une partie reste ? --resume la reprend.', false],
     ];
     return `<h1 class="page-title">Documentation</h1><p class="lead">Comment fonctionne la Top Factory, et tout ce que tu peux lui demander.</p>
     <div class="doc"><nav class="toc">
@@ -853,7 +896,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <a href="#/docs" data-anchor="d-agents">Agents</a><a href="#/docs" data-anchor="d-gardefous">Garde-fous</a>
       <a href="#/docs" data-anchor="d-fichiers">Fichiers du projet</a><a href="#/docs" data-anchor="d-notifs">Notifications</a>
       <a href="#/docs" data-anchor="d-repondre">Répondre à une validation</a>
-      <a href="#/docs" data-anchor="d-design">Design des écrans</a><a href="#/docs" data-anchor="d-front">Frontend sans backend</a>
+      <a href="#/docs" data-anchor="d-design">Design des écrans</a><a href="#/docs" data-anchor="d-front">Backend et frontend séparés</a>
       <a href="#/docs" data-anchor="d-depannage">Dépannage</a></nav>
     <div>
       <section id="d-principe" class="card block"><h3>Le principe</h3>
@@ -863,7 +906,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         (PostgreSQL, Redis…). Des <b>garde-fous</b> contrôlent chaque fichier écrit : une violation est corrigée tout de suite, pas découverte en revue.</p>
         <div class="chips"><span class="chip">Kit v${esc(D.kit || '?')}</span><span class="chip">Commandes : <code>${esc(P)}…</code></span></div></section>
       <section id="d-workflow" class="card block"><h3>Le workflow d'une feature</h3>
-        <p>Lancé par <code>${esc(P)}feature &lt;besoin&gt;</code>. Les étapes en orange s'arrêtent pour ta validation : rien ne continue sans ton accord.</p>
+        <p>Lancé par <code>${esc(P)}feature &lt;besoin&gt;</code>. Les étapes en orange s'arrêtent pour ta validation : rien ne continue sans ton accord.
+        Avec backend <b>et</b> frontend, chaque partie peut aller seule jusqu'à son commit : la seconde se reprend plus tard, par toi ou un autre
+        développeur, avec <code>${esc(P)}feature --resume &lt;slug&gt; --front</code> (ou <code>--back</code>) — l'avancement est noté dans le plan.</p>
         <div class="flow">${flow.map(f => `<div class="flow-step ${f[4] ? 'gate' : ''}"><b>${icon(f[1])} ${esc(f[2])}</b><span>${esc(f[3])}</span>${f[4] ? `<span class="faint" style="color:var(--amber)">${icon('circle-pause', 'sm')} ta validation</span>` : ''}</div>`).join('')}</div></section>
       <section id="d-demarrer" class="card block"><h3>Démarrer un projet</h3>
         <ol class="steps-num">
@@ -871,7 +916,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
           <li><span>Crée le dépôt Git et le backend Spring Boot (start.spring.io), dans le dossier de ton choix.</span></li>
           <li><span>Dans Claude, à la racine du projet : <code>${esc(P)}init</code> — architecture, branche d'intégration, intégrations, dossiers.</span></li>
           <li><span>Relance Claude, complète <code>CLAUDE.md</code>, puis <code>${esc(P)}init-architecture &lt;module&gt;</code>.</span></li>
-          <li><span>Si besoin, le frontend : <code>${esc(P)}add-frontend</code>. Ensuite, chaque besoin passe par <code>${esc(P)}feature</code>.</span></li>
+          <li><span>Si besoin, le frontend : <code>${esc(P)}add-frontend</code> ; et, si tu veux, le design en amont : <code>${esc(P)}design-project</code>. Ensuite, chaque besoin passe par <code>${esc(P)}feature</code>.</span></li>
         </ol></section>
       <section id="d-commandes" class="card block"><h3>Commandes</h3><p>Lues directement dans le kit installé : cette liste est toujours à jour.</p>
         <table><thead><tr><th>Commande</th><th>À quoi elle sert</th></tr></thead><tbody>
@@ -892,11 +937,11 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         </tbody></table></section>
       <section id="d-fichiers" class="card block"><h3>Fichiers du projet</h3><table><tbody>
           <tr><td><code>.claude/factory.json</code></td><td>Architecture, branche d'intégration, dossiers backend et frontend. <b>Verrouillé</b> : écrit par <code>${esc(P)}init</code>, jamais modifié par Claude.</td></tr>
-          <tr><td><code>.claude/stack.json</code></td><td>Profil, options de conventions (mapping, erreurs, transport du JWT, bibliothèque d'interface…) et intégrations actives.</td></tr>
+          <tr><td><code>.claude/stack.json</code></td><td>Profil, options de conventions (mapping, erreurs, transport du JWT, bibliothèque d'interface…), intégrations actives, outil de design et son lien.</td></tr>
           <tr><td><code>.claude/settings.json</code></td><td>Permissions partagées et activation du plugin (réécrit par le script de la factory).</td></tr>
           <tr><td><code>.claude/settings.local.json</code></td><td>Tes autorisations personnelles ; jamais commité.</td></tr>
           <tr><td><code>CLAUDE.md</code></td><td>Contexte métier, règles et commandes du projet : à compléter par toi.</td></tr>
-          <tr><td><code>docs/specs/</code></td><td>Une spec et un plan par fonctionnalité.</td></tr>
+          <tr><td><code>docs/specs/</code></td><td>Une spec et un plan par fonctionnalité (avec l'avancement de chaque partie). Contrats d'API dans <code>docs/api/</code>, design dans <code>docs/design/</code>.</td></tr>
         </tbody></table></section>
       <section id="d-notifs" class="card block"><h3>Notifications</h3>
         <p>Tu n'es prévenu que lorsque c'est utile : <b>ta décision est nécessaire</b> pour continuer (arrêt ⏸ d'une commande),
@@ -911,6 +956,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         et trois réponses prêtes : « Valider et continuer », « Valider avec remarques », « Demander des corrections ». Tu écris tes
         remarques si besoin, tu copies la réponse et tu la colles dans ta session Claude. La page ne parle jamais directement à
         Claude : c'est toi qui envoies la réponse, rien ne part sans toi.</p>
+        <p><b>Les demandes d'autorisation</b> (« Claude attend ton autorisation ») ne sont pas des validations de la factory : c'est Claude Code
+        qui demande s'il peut modifier un fichier ou lancer une commande. La page dit ce qui est demandé ; tu réponds dans ta session
+        (1 · oui, 2 · oui et ne plus demander, 3 · non). Le tableau de bord ne répond jamais à ta place.</p>
         <p><b>Depuis ton téléphone, avec Remote Control</b> (fonction officielle de Claude Code, abonnements Pro, Max, Team et Enterprise) :</p>
         <ol class="steps-num">
           <li><span>Dans ta session Claude Code, tape <code>/remote-control</code> (ou <code>/rc</code>) ; ou lance directement <code>claude --rc</code>. Accepte la confirmation la première fois.</span></li>
@@ -918,24 +966,30 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
           <li><span>Avec les notifications ntfy, tu es prévenu sur ton téléphone dès qu'une validation est requise : tu réponds directement dans l'application.</span></li>
         </ol></section>
       <section id="d-design" class="card block"><h3>Design des écrans</h3>
-        <p>Aucun écran n'est développé sans <b>design validé</b>. Le design vit dans le dépôt (<code>docs/design/</code>) : un design system,
+        <p>Le design est <b>facultatif</b> : à chaque feature, la factory regarde ce qui existe (écrans déjà codés, designs validés, outil du projet)
+        et te fait une recommandation ; c'est toi qui choisis. Le design vit dans le dépôt (<code>docs/design/</code>) : un design system,
         une fiche et une maquette par écran, et un registre qui suit chaque écran : <b>proposé → validé → implémenté → intégré</b>.
-        L'onglet <b>Design</b> de chaque projet les montre tous.</p>
+        L'onglet <b>Design</b> de chaque projet les montre tous, avec un bouton vers ton outil.</p>
         <ol class="steps-num">
+          <li><span><b>Outil du projet, enregistré une fois</b> : <code>${esc(P)}design-link &lt;url&gt;</code> écrit l'outil (Claude Design ou Figma) et son lien dans
+            <code>.claude/stack.json</code>, avec ton accord. Le lien reste valable d'une session à l'autre et est annoncé à chaque démarrage.</span></li>
+          <li><span><b>Avant les features</b> : <code>${esc(P)}design-project</code> — design system et tout ou partie des écrans prévus, validés lot par lot.</span></li>
           <li><span><b>Avec la factory</b> : <code>${esc(P)}design-system</code>, puis <code>${esc(P)}design-screen &lt;écran&gt;</code> — l'agent designer propose, tu valides.</span></li>
-          <li><span><b>Avec Claude Design</b> : crée ou affine le design dans Claude Design (dans Claude Code : <code>/design</code> ; <code>/design-sync</code> partage le design system du code), puis <code>${esc(P)}design-link &lt;url&gt; &lt;écran&gt;</code>.</span></li>
-          <li><span><b>Avec Figma</b> : <code>${esc(P)}design-link &lt;url de la frame&gt; &lt;écran&gt;</code> ; avec le serveur MCP Figma branché, l'agent lit directement la maquette.</span></li>
+          <li><span><b>Avec Claude Design ou Figma</b> : tu dessines dans l'outil ; <code>${esc(P)}design-screen &lt;écran&gt;</code> reporte l'écran dans le dépôt (serveur MCP de l'outil s'il est branché, sinon ton export ou tes captures).</span></li>
           <li><span><b>Améliorer</b> : <code>${esc(P)}design-improve &lt;écran&gt; &lt;demande&gt;</code> — nouvelle proposition, ta validation, puis le code suit.</span></li>
         </ol>
         <p style="margin-top:12px">Avant d'écrire un écran, le développeur frontend vérifie dans l'ordre : l'écran existe déjà (il ne fait que brancher l'API) ;
-        un design validé existe (il l'implémente fidèlement) ; sinon le designer propose d'abord un design.</p></section>
-      <section id="d-front" class="card block"><h3>Frontend sans backend</h3>
-        <p>Pour une équipe frontend et une équipe backend qui avancent chacune de leur côté :</p>
+        un design validé existe (il l'implémente fidèlement) ; tu as choisi « sans design » (il suit le design system et les écrans existants) ; sinon il s'arrête et te demande.</p></section>
+      <section id="d-front" class="card block"><h3>Backend et frontend séparés</h3>
+        <p>Pour tester l'API pour de vrai avant l'interface, ou pour une équipe frontend et une équipe backend qui avancent chacune de leur côté :</p>
         <ol class="steps-num">
           <li><span>Le <b>contrat d'API</b> de la feature est écrit par l'architecte dans <code>docs/api/&lt;feature&gt;.md</code> : c'est la référence commune.</span></li>
-          <li><span>L'équipe frontend lance <code>${esc(P)}feature &lt;besoin&gt; --front</code> : écrans implémentés sur des <b>données simulées</b> conformes au contrat (<code>npx ng serve --configuration mock</code>), jamais présentes dans le build de production.</span></li>
-          <li><span>L'équipe backend lance <code>${esc(P)}feature &lt;besoin&gt; --back</code> en réutilisant la spec et le contrat.</span></li>
-          <li><span>Quand le backend est prêt : <code>${esc(P)}integrate &lt;feature&gt;</code> branche les écrans sur la vraie API et vérifie le contrat.</span></li>
+          <li><span><b>Backend d'abord</b> : au plan, choisis « backend d'abord ». La partie backend va jusqu'à sa revue et son commit ; tu testes l'API (Swagger, <code>curl</code>).
+            Puis <code>${esc(P)}feature --resume &lt;slug&gt; --front</code> : le frontend se branche directement sur la vraie API (nouvelle branche si le backend est déjà fusionné).</span></li>
+          <li><span><b>Frontend d'abord</b> : choisis « frontend d'abord », ou lance <code>${esc(P)}feature &lt;besoin&gt; --front</code> : écrans sur des <b>données simulées</b>
+            conformes au contrat (<code>npx ng serve --configuration mock</code>), jamais présentes dans le build de production. Quand le backend est prêt :
+            <code>${esc(P)}integrate &lt;feature&gt;</code>.</span></li>
+          <li><span>Deux équipes : chacune lance <code>--back</code> ou <code>--front</code> (ou <code>--resume</code>) en réutilisant la spec, le plan et le contrat.</span></li>
         </ol></section>
       <section id="d-depannage" class="card block"><h3>Dépannage</h3><dl class="faq">
           <dt>Sous PowerShell, <code>bash</code> lance WSL au lieu de Git Bash.</dt><dd>Utilise Git Bash, ou <code>&amp; "C:\\Program Files\\Git\\bin\\bash.exe"</code>.</dd>

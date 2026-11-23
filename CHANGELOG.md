@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.5.0 — Design au choix, code par parties
+Rien à faire dans un projet existant : mettre à jour le plugin (`/plugin marketplace update top`, puis `/plugin`).
+Pour enregistrer l'outil de design du projet : `/top-factory:design-link <url>`.
+
+- **Design facultatif** : après le plan, `/feature` ne lance plus le designer d'office. La factory regarde ce qui
+  existe (écrans déjà codés, designs validés, outil du projet), fait une **recommandation** écran par écran, et tu
+  choisis : designer de la factory, design externe (Claude Design ou Figma) ou **sans design** (le frontend suit le
+  design system et les écrans existants ; source `aucun`, visible dans l'onglet Design).
+- **Outil de design enregistré une fois**, dans le bloc `design` de `.claude/stack.json` (`tool`, `link`) :
+  `/design-link <url>` l'écrit avec ton accord ; il est annoncé à chaque session et l'onglet Design affiche un bouton
+  « Ouvrir dans Claude Design / Figma ». Le lien d'un écran précis reste possible dans `design.json`, facultatif.
+  Avec Claude Design ou Figma, l'agent `designer` reporte ton design au lieu d'en proposer un ; le serveur MCP de
+  l'outil sert s'il est branché (jamais requis), sinon ton export ou tes captures. Le projet épinglé par `/design-sync`
+  (`.design-sync/config.json`) est seulement lu, pour proposer son lien.
+- **`/design-project`** : design en début de projet — design system et tout ou partie des écrans prévus, validés lot
+  par lot ; l'architecte aligne ensuite chaque contrat d'API sur les écrans validés et signale les écarts.
+- **Code par parties** : au plan, tu choisis l'ordre — les deux ensemble, **backend d'abord** (l'API se teste pour de
+  vrai avant l'interface) ou **frontend d'abord** (données simulées). Chaque partie va jusqu'à ses tests, sa revue, ton
+  verdict et son commit. L'avancement est noté dans `docs/specs/<slug>-plan.md` (section « Avancement ») ;
+  `/feature --resume <slug> --front` (ou `--back`) reprend la suite, sur une **nouvelle branche** si la première partie
+  est déjà fusionnée — y compris sur le poste d'un autre développeur.
+- **Autorisations lisibles** : nouveau hook `PermissionRequest` (journal seulement, aucune décision) ; le tableau de bord
+  et la notification disent ce que Claude demande — « modifier le fichier … », « lancer la commande « npm install » » —
+  sans jamais le contenu ni les arguments sensibles, et expliquent comment répondre dans la session (1 · oui, 2 · oui et
+  ne plus demander, 3 · non). Le tableau de bord ne répond jamais à ta place.
+- Documentation : README, règles, page Documentation du tableau de bord (workflow, design, « Backend et frontend
+  séparés », autorisations), feuille de route (multi-backend décalé en v4.6).
+- Tests : 248 scénarios en mode copie, 251 en mode plugin.
+
 ## v4.4.2 — Les validations sont toujours repérées
 Rien à faire dans un projet existant : mettre à jour le plugin.
 

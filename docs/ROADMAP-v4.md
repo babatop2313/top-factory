@@ -88,12 +88,16 @@ Journal d'activité par les hooks, page locale `~/.top-factory/dashboard.html`, 
 ## v4.4 — Design et frontend autonome ✅ (livrée)
 Agent `designer`, `docs/design/`, commandes design, contrat d'API, données simulées, `/integrate`, onglet Design.
 
-## v4.5 — Plusieurs backends dans un même dépôt
+## v4.5 — Design au choix et code par parties ✅ (livrée)
+Design facultatif (recommandation, choix de l'humain), outil et lien de design dans `stack.json`, `/design-project`,
+parties backend et frontend codées ensemble ou l'une après l'autre (`/feature --resume`), autorisations lisibles.
+
+## v4.6 — Plusieurs backends dans un même dépôt
 Aujourd'hui : un seul backend par projet. Besoin exprimé : plusieurs projets backend (microservices, multi-modules
 indépendants) pilotés par la même factory. À cadrer : une architecture par backend ou commune, ArchitectureTest par
 backend, `<backend>` désigné par tâche, hooks qui compilent le bon module.
 
-## v4.6 — Noyau neutre (préparer le multi-IA)
+## v4.7 — Noyau neutre (préparer le multi-IA)
 Appliquer l'architecture hexagonale à la factory elle-même : un **noyau neutre** et des **adaptateurs par outil**.
 ```
 core/          factory.json, stack.json, références (architecture, conventions, intégrations),
@@ -117,11 +121,11 @@ adapters/
 | Sous-agents | moyenne : notions très différentes |
 | Hooks | faible : remplacés par le hook Git et la CI pour ce qui est obligatoire |
 
-## v4.7 — `factory-mcp`, la factory comme serveur MCP
+## v4.8 — `factory-mcp`, la factory comme serveur MCP
 Serveur en **Java / Spring AI, transport stdio**, utilisable par tous les clients : `get_architecture`,
 `get_reference_section`, `check_architecture(fichier)` (applique les `rules.conf`), `list_integrations`, `list_specs`…
 Dans Claude Code, il ferait doublon avec les skills ; il prend tout son sens pour Copilot et Gemini.
 
-## v4.8 et v4.9 — Copilot, puis Gemini CLI
+## v4.9 et v4.10 — Copilot, puis Gemini CLI
 Un adaptateur par outil, généré depuis le noyau, **validé sur Bibliothèque** avec les mêmes scénarios que pour Claude.
 Objectif réaliste : les mêmes règles et les mêmes garde-fous partout, pas une expérience identique dans chaque outil.
