@@ -45,6 +45,11 @@
   d'autorisation inutiles à l'humain.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
+- **Attendre l'humain** : chaque fois que tu t'arrêtes pour attendre une validation, une décision ou une réponse de
+  l'humain (spec, plan, design, verdict, point de départ, écart de contrat…), **termine ton message par une ligne qui
+  commence par « ⏸ »** et dit précisément ce qui est attendu, par exemple : « ⏸ En attente de ta validation : le design
+  des écrans catalogue-list et catalogue-register-dialog. » Ce symbole déclenche la notification et le panneau de
+  réponse du tableau de bord ; sans lui, l'humain n'est pas prévenu.
 - **Design** : aucun écran n'est implémenté sans design validé (`docs/design/design.json`, skill `design`) ; un écran
   qui existe déjà n'est pas refait, il est branché sur l'API. Le contrat d'API d'une feature est dans `docs/api/`.
 - **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw`,

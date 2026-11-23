@@ -52,9 +52,13 @@ case "$kind" in
     detail="$(first_line "$(j .last_assistant_message)")" ;;
   stop)
     msg="$(j .last_assistant_message)"
-    if printf '%s' "$msg" | grep -q '⏸'; then
+    # Attente de l'humain : symbole « ⏸ » (règle de la factory) ou, à défaut, une demande explicite à la fin du message.
+    tail_msg=$(printf '%s' "$msg" | tail -c 600)
+    if printf '%s' "$msg" | grep -q '⏸' || printf '%s' "$tail_msg" | grep -Eiq \
+         "(j'attends|en attendant|attends?|attente de) (ta|votre|tes|vos) (validation|décision|decision|réponse|reponse|accord|choix|retour)|(tu valides|valides-tu|validez-vous|vous validez|je commite \?|je pousse \?)"; then
       ev="validation"; title="Validation requise"
-      detail="$(printf '%s\n' "$msg" | grep -m1 '⏸' | sed -E 's/^[[:space:]#>*]+//')"
+      detail="$(printf '%s\n' "$msg" | grep '⏸' | tail -n 1 | sed -E 's/^[[:space:]#>*]+//')"
+      [ -n "$detail" ] || detail="$(printf '%s\n' "$msg" | grep -v '^[[:space:]]*$' | tail -n 1 | sed -E 's/^[[:space:]#>*]+//')"
       detail="${detail#⏸}"; detail="${detail#️}"; detail="$(printf '%s' "$detail" | sed -E 's/^[[:space:]]+//' | cut -c1-200)"
     else
       ev="turn_end"; title="Claude a terminé — à toi de jouer"; detail="$(first_line "$msg")"

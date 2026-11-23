@@ -14,3 +14,5 @@ Demande : $ARGUMENTS
    **⏸ ARRÊT : attends ma validation.**
 4. Après mon accord : statut `validé`. Si du code est concerné, propose la suite : `/feature` (évolution) ou `/fix-bug`
    (défaut visuel), où `frontend-dev` appliquera le design validé. Ne commite rien sans mon accord.
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.

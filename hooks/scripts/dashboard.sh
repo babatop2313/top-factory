@@ -614,14 +614,14 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     if (i < 0) i = docs.findIndex(d => /^docs\/specs\//.test(d.rel) && want(d));
     return gate === 'review' || gate === 'design' ? -1 : i;
   }
-  function replyPanel(p, f) {
-    const gate = f && f.waiting >= 0 ? f.model[f.waiting].id : 'other';
+  function replyPanel(p, f, forced) {
+    const gate = forced || (f && f.waiting >= 0 ? f.model[f.waiting].id : 'other');
     const R = REPLIES[gate] || REPLIES.other;
     const di = docFor(p, f, gate);
     return `<div class="reply no-print" data-gate="${gate}">
       <div class="row between" style="flex-wrap:wrap"><b>${icon('reply')} Ta réponse</b>
         ${di >= 0 ? `<a class="btn" href="#/projet/${encodeURIComponent(p.id)}/doc/${di}">${icon('file-text', 'sm')} Relire ${esc(R.what)}</a>` : ''}
-        ${gate === 'design' && p.design ? `<a class="btn" href="#/projet/${encodeURIComponent(p.id)}/design">${icon('palette', 'sm')} Voir les maquettes</a>` : ''}</div>
+        ${gate === 'design' && p.design && !/\/design/.test(location.hash || '') ? `<a class="btn" href="#/projet/${encodeURIComponent(p.id)}/design">${icon('palette', 'sm')} Voir les maquettes</a>` : ''}</div>
       <div class="reply-choices">
         <button type="button" data-choice="ok" aria-pressed="true">${icon('check-check', 'sm')} Valider et continuer</button>
         <button type="button" data-choice="notes" aria-pressed="false">${icon('pencil-line', 'sm')} Valider avec remarques</button>
@@ -680,6 +680,8 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     d.screens.forEach((sc, k) => { (groups[sc.feature || 'Autres écrans'] = groups[sc.feature || 'Autres écrans'] || []).push({ sc, k }); });
     const count = st => d.screens.filter(x => x.status === st).length;
     return head + `
+      ${count('proposé') || ds.status === 'proposé' ? `<div class="callout tone-amber">${icon('circle-pause')}<div><b>${count('proposé') ? count('proposé') + ' écran' + (count('proposé') > 1 ? 's attendent' : ' attend') + ' ta validation' : 'Le design system attend ta validation'}.</b>
+        Ouvre chaque écran pour voir sa maquette et sa fiche, puis choisis ta réponse ci-dessous et colle-la dans ta session Claude.</div></div>${replyPanel(p, null, 'design')}<div style="height:18px"></div>` : ''}
       <div class="kpis"><div class="card kpi">${badge('layout-template', 'accent')}<div><b>${d.screens.length}</b><span>écran${d.screens.length > 1 ? 's' : ''}</span></div></div>
         <div class="card kpi">${badge('circle-pause', 'amber')}<div><b>${count('proposé')}</b><span>à valider</span></div></div>
         <div class="card kpi">${badge('code', 'sky')}<div><b>${count('implémenté')}</b><span>sur données simulées</span></div></div>
@@ -713,7 +715,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <div class="doc-actions">${srcChip(sc.source)}
         ${sc.link ? `<a class="btn" href="${esc(sc.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'sm')} Ouvrir dans ${esc((SOURCE[sc.source] || ['', 'l\'outil'])[1])}</a>` : ''}
         <button type="button" class="btn" onclick="window.print()">${icon('printer', 'sm')} Imprimer / PDF</button></div>
-      ${sc.status === 'proposé' ? `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Ce design attend ta validation.</b> Valide-le ou demande des changements dans ta session Claude ; pour l'améliorer plus tard : <code>${esc(P)}design-improve ${esc(sc.id)} &lt;demande&gt;</code>.</div></div>` : ''}
+      ${sc.status === 'proposé' ? `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Ce design attend ta validation.</b> Choisis ta réponse ci-dessous et colle-la dans ta session Claude ; pour l'améliorer plus tard : <code>${esc(P)}design-improve ${esc(sc.id)} &lt;demande&gt;</code>.</div></div>${replyPanel(p, null, 'design')}` : ''}
       <h2 class="section">${icon('eye')} Maquette</h2>
       ${sc.mockupContent ? frame(sc.mockupContent, 'mockup-frame') : emptyBox('layout-template', 'Pas de maquette dans le dépôt', sc.link ? 'Le design est dans l\'outil externe (bouton ci-dessus). <code>' + esc(P) + 'design-screen ' + esc(sc.id) + '</code> en tire une fiche et une maquette.' : '')}
       <h2 class="section">${icon('file-text')} Fiche de l'écran</h2>
@@ -992,7 +994,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     drawAuto();
     const hh = location.hash || '';
     const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
-    if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\/|\/design\//.test(hh)) return;
+    if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\/|\/design(\/|$)/.test(hh)) return;
     try { sessionStorage.setItem('tf-scroll', String(window.scrollY)); } catch (e) {}
     location.reload();
   }, 15000);

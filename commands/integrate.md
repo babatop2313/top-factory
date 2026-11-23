@@ -17,3 +17,5 @@ Feature : $ARGUMENTS
 5. Revue par `reviewer` (contrat respecté, plus aucune donnée simulée dans le build de production, erreurs du backend
    affichées). Statut des écrans concernés → `intégré` dans `design.json`.
 6. **⏸ ARRÊT : présente-moi le verdict** et attends ma décision avant tout commit (`feat(<feature>): intégration de l'API`).
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.
