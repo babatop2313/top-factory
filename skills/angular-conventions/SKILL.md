@@ -90,6 +90,10 @@ src/app/core/mock/
   mock-api.interceptor.ts    sert les requêtes /api/... connues, laisse passer les autres (vraie API par le proxy)
 src/mocks/<feature>/         jeux de données JSON conformes au contrat (réponses, erreurs ProblemDetail)
 ```
+- L'intercepteur simulé est une **classe** enregistrée par `HTTP_INTERCEPTORS` dans `mock.providers.mock.ts` (un
+  intercepteur fonctionnel ne peut pas s'ajouter par une liste de providers séparée) ; `app.config.ts` déclare donc
+  `provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]), withInterceptorsFromDi())`, ce qui le place
+  **en dernier** : les erreurs simulées traversent les vrais intercepteurs (notifications, 401 → connexion).
 - `app.config.ts` ajoute `...mockProviders` ; `angular.json` définit une configuration **`mock`** (build et serve) avec
   `fileReplacements` : `mock.providers.ts` → `mock.providers.mock.ts`. Les builds normal et de production ne contiennent
   donc **aucun** code ni jeu de données simulés. Lancement : `npx ng serve --configuration mock`.

@@ -536,6 +536,11 @@ G="$(mktemp -d)"; mkdir -p "$G/.claude"; printf '{"architecture":"couche"}' > "$
 CLAUDE_PROJECT_DIR="$G" bash "$H/events.sh" bash <<< "$(jc 'git commit -m "feat(catalog): premier commit"')"
 ok '[ "$(jq -r "[.[]] | length" "$TOP_FACTORY_HOME/projects.json")" = 2 ] && grep -q "feat(catalog): premier commit" "$TOP_FACTORY_HOME"/events/*.jsonl' "commit : second projet suivi, message du commit"
 rm -rf "$G"
+mkdir -p "$T/docs/specs"; head -c 300000 /dev/zero | tr '\0' 'x' > "$T/docs/specs/tres-long.md"
+for i in $(seq 1 300); do printf '{"ts":"2026-11-23T10:00:00Z","kind":"agent_end","title":"Agent architect a terminé","detail":"%s","branch":"feature/x"}\n' "$(head -c 400 /dev/zero | tr '\0' 'y')"; done >> "$(ls "$TOP_FACTORY_HOME"/events/"$(basename "$T")"-*.jsonl | head -1)"
+bash "$H/dashboard.sh" 2> "$T/err"; rc=$?
+ok '[ "$rc" = 0 ] && [ ! -s "$T/err" ] && DJ | jq -e --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0] | .docs[0].truncated == true and (.events | length) == 300" >/dev/null' "gros volumes (spec de 300 Ko, 300 événements) : page générée, rien sur la ligne de commande"
+rm -f "$T/docs/specs/tres-long.md"
 bash "$H/dashboard.sh" --prune > "$T/out"
 ok 'grep -q "Retiré" "$T/out" && [ "$(jq -r "[.[]] | length" "$TOP_FACTORY_HOME/projects.json")" = 1 ]' "--prune retire le projet disparu"
 unset TOP_FACTORY_HOME TOP_FACTORY_NOTIFY TOP_FACTORY_DASHBOARD_SYNC
