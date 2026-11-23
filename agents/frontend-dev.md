@@ -24,8 +24,12 @@ ni plus ni moins.
 1. **L'écran existe déjà** (éventuellement avec des données simulées) : ne refais pas l'interface, branche-la sur l'API.
 2. **Un design validé existe** dans `docs/design/design.json` : implémente fidèlement la fiche et la maquette (mise en
    page, composants, états, textes). Un écart nécessaire se signale dans ta réponse, il ne se décide pas seul.
-3. **Aucun design validé** : arrête-toi et dis-le ; le design passe d'abord par l'agent `designer` et l'humain.
+3. **L'humain a choisi « sans design »** pour cet écran (l'agent principal te le transmet) : implémente à partir de la
+   spec, du design system (`docs/design/design-system.md` s'il existe) et des écrans existants, avec la bibliothèque
+   `front-ui` ; inscris l'écran dans `design.json` avec la source `aucun`.
+4. **Sinon** (design seulement `proposé`, ou aucun choix transmis) : arrête-toi et dis-le ; c'est à l'humain de choisir.
 Ensuite, mets à jour le statut des écrans dans `design.json` : `implémenté` (données simulées) ou `intégré` (vraie API).
+Backend de la feature déjà terminé (l'agent principal te le dit) : travaille directement sur la vraie API, sans données simulées.
 
 ## Données simulées (backend absent ou pas encore prêt)
 Applique la section « Données simulées » du skill `angular-conventions` : jeux de données conformes au contrat

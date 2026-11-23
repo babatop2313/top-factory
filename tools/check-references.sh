@@ -167,8 +167,12 @@ for c in $(jq -r '.. | .command? // empty' "$hj" | sed -nE 's#.*\$\{CLAUDE_PLUGI
   [ -f "$root/$c" ] || { echo "   ✗ hooks.json : script introuvable $c"; errors=$((errors+1)); }
 done
 jq -e 'has("hooks") | not' "$root/templates/settings.json" >/dev/null || { echo "   ✗ templates/settings.json ne doit pas contenir de hooks (ils sont dans hooks/hooks.json)"; errors=$((errors+1)); }
-for c in init add-frontend dashboard integrate design-system design-screen design-improve design-link; do
+for c in init add-frontend dashboard integrate design-system design-screen design-improve design-link design-project; do
   [ -f "$root/commands/$c.md" ] || { echo "   ✗ commande commands/$c.md absente"; errors=$((errors+1)); }
+done
+# /feature : reprise par partie (section « Avancement » lue par --resume) et design au choix de l'humain.
+for k in '--resume' '## Avancement' 'Design — facultatif'; do
+  grep -qF -- "$k" "$root/commands/feature.md" || { echo "   ✗ commands/feature.md : « $k » manquant"; errors=$((errors+1)); }
 done
 # Règles du frontend : format « segment :: regex :: message », au moins une règle.
 frules="$root/skills/angular-conventions/references/rules.conf"

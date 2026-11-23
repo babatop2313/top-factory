@@ -18,8 +18,11 @@ implémenter fidèlement avec la bibliothèque d'interface du projet. Tu n'écri
 3. Lis `docs/design/design.json`, `docs/design/design-system.md` et les écrans voisins s'ils existent : reste cohérent
    avec ce qui est déjà validé. Sans design system, propose-le d'abord (ou en même temps que le premier écran).
 4. Lis la spec, le plan et le contrat d'API (`docs/api/<feature>.md`) transmis : chaque donnée affichée vient d'un DTO.
-5. Si un lien Figma ou Claude Design est fourni : il fait référence ; décris fidèlement ce qu'il montre et demande ce qui
-   manque plutôt que de l'inventer.
+5. Outil de design du projet (bloc `design` de `.claude/stack.json`, transmis par l'orchestrateur) :
+   - `factory` ou absent → tu proposes le design ;
+   - `claude-design` ou `figma` → l'humain dessine dans l'outil : **tu ne proposes pas** ton propre design, tu reportes
+     fidèlement le sien dans `docs/design/` (serveur MCP de l'outil s'il est branché, sinon exports, captures ou
+     description fournis par l'humain ; skill `design`, « Sources externes »). Ce qui manque se demande, ne s'invente pas.
 
 ## Ce que tu produis
 - `docs/design/screens/<ecran>.md` (fiche complète : but, accès, mise en page, composants, données, états, interactions,

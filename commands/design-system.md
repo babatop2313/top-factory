@@ -15,8 +15,10 @@ Demande : $ARGUMENTS
 4. Après mon accord : statut `validé` dans `design.json` (et date `updated`). Rappelle que les écrans implémentés ne
    changent pas tout seuls : une mise à jour d'écran passe par `/design-improve` puis `/feature` ou `/fix-bug`.
 
-Si le projet a un design system dans Claude Design, propose `/design-sync` (commande de Claude Code) pour partager
-celui du code, ou `/design-link <url>` pour référencer celui de Claude Design.
+Outil de design du projet (bloc `design` de `.claude/stack.json`) : avec `claude-design` ou `figma`, le design system
+se définit dans l'outil ; `designer` le reporte dans `design-system.md` à partir du lien et de ce que je fournis, au lieu
+de l'inventer. Pour partager celui du code vers Claude Design : `/design-sync` (commande de Claude Code, que je lance
+moi-même ; design systems React). Pas encore de lien enregistré : `/design-link <url>`.
 Ne commite rien sans mon accord.
 
 À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.

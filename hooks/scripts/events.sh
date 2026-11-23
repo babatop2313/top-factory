@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Journal d'activité et notifications de la factory (tableau de bord).
-# Appelé par les hooks : events.sh <session_start|session_end|prompt|agent_start|agent_end|stop|notification|bash>
+# Appelé par les hooks : events.sh <session_start|session_end|prompt|agent_start|agent_end|stop|notification|permission_request|bash>
 #
 #  - écrit un événement dans ${TOP_FACTORY_HOME:-~/.top-factory}/events/<projet>.jsonl et inscrit le projet
 #    dans projects.json ;
 #  - envoie une notification (bureau et/ou ntfy) SEULEMENT quand c'est utile (réglable dans config.json) :
 #      validation  — une commande s'est arrêtée (⏸) : ta décision est nécessaire pour continuer ;
-#      permission  — Claude attend ton autorisation ;
+#      permission  — Claude attend ton autorisation (hook PermissionRequest : ce qui est demandé, sans contenu) ;
 #      task_done   — Claude a complètement terminé (aucun agent encore au travail, tâche d'au moins minTaskSeconds) ;
 #      handoff     — un agent passe la main à un autre ;
 #  - régénère le tableau de bord (dashboard.html) en arrière-plan.
@@ -49,10 +49,11 @@ case "$kind" in
   prompt)
     # Le texte de la demande n'est jamais enregistré : seulement le nom d'une commande de la factory, s'il y en a une.
     ev="prompt"; title="Nouvelle demande"
-    c=$(j .prompt | head -n 1 | sed -nE 's#^[[:space:]]*/(top-factory:)?(feature|fix-bug|integrate|design-system|design-screen|design-improve|design-link|review-mr|add-frontend|add-integration|init|init-architecture)([[:space:]].*)?$#\2#p')
+    c=$(j .prompt | head -n 1 | sed -nE 's#^[[:space:]]*/(top-factory:)?(feature|fix-bug|integrate|design-system|design-screen|design-improve|design-link|design-project|review-mr|add-frontend|add-integration|init|init-architecture)([[:space:]].*)?$#\2#p')
     if [ -n "$c" ]; then
       a="cmd:$c"; title="Commande /$c lancée"
       case "$(j .prompt | head -n 1)" in *--front*) detail="périmètre : frontend" ;; *--back*) detail="périmètre : backend" ;; esac
+      case "$(j .prompt | head -n 1)" in *--resume*) detail="reprise${detail:+ — $detail}" ;; esac
     fi ;;
   agent_start)
     aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_start"; if [ -n "$a" ]; then title="Agent $a au travail"; else title="Un agent se met au travail"; fi ;;
@@ -72,10 +73,44 @@ case "$kind" in
     else
       ev="turn_end"; title="Claude a terminé — à toi de jouer"; detail="$(first_line "$msg")"
     fi ;;
+  permission_request)
+    # Ce que Claude demande, sans le contenu : chemin du fichier (dans le projet), nom de la commande (au plus trois mots
+    # simples, jamais ses arguments), domaine consulté, outil MCP. Ne renvoie rien : la demande s'affiche comme d'habitude.
+    tn="$(j .tool_name)"; pact=""; pshort=""
+    case "$tn" in
+      Edit|Write|MultiEdit|NotebookEdit|Read)
+        f="$(j '.tool_input.file_path // .tool_input.notebook_path' | tr '\\' '/')"; r="$(printf '%s' "$root" | tr '\\' '/')"
+        command -v cygpath >/dev/null 2>&1 && [ -n "$f" ] && f="$(cygpath -u "$f" 2>/dev/null || printf '%s' "$f")"
+        case "$f" in "$r"/*) f="${f#"$r"/}" ;; *) f="$(basename "$f")" ;; esac
+        f="$(printf '%s' "$f" | tr -d '\000-\037' | cut -c1-160)"
+        if [ "$tn" = Read ]; then pact="lire le fichier $f"; pshort="lire un fichier ($(basename "$f"))"
+        else pact="modifier le fichier $f"; pshort="modifier un fichier ($(basename "$f"))"; fi ;;
+      Bash|PowerShell)
+        c="$(j .tool_input.command | head -n 1 | sed -E 's/^[[:space:]]*(cd[[:space:]]+[^;&|]*(&&|;)[[:space:]]*)+//; s/(&&|\|\||;|\|).*$//')"
+        prog="$(printf '%s' "$c" | awk '{ o=""; for (i = 1; i <= NF && i <= 3; i++) { if ($i !~ /^[a-z.\/][a-z0-9:._\/-]*$/ || length($i) > 30) break; o = o (o ? " " : "") $i } print o }')"
+        [ -n "$prog" ] || prog="une commande"
+        pact="lancer la commande « $prog »"; pshort="lancer une commande (${prog%% *})" ;;
+      WebFetch)
+        d="$(j .tool_input.url | sed -nE 's#^[a-z]+://([A-Za-z0-9.-]+).*#\1#p')"
+        pact="consulter ${d:-une page web}"; pshort="$pact" ;;
+      mcp__*)
+        pact="utiliser l'outil ${tn#mcp__}"; pshort="utiliser un outil MCP (${tn#mcp__})" ;;
+      "") pact="continuer"; pshort="continuer" ;;
+      *) pact="utiliser l'outil $tn"; pshort="$pact" ;;
+    esac
+    ev="permission"; title="Autorisation demandée"; detail="Claude demande l'autorisation de $pact." ;;
   notification)
     nt="$(j '.notification_type // .type')"; m="$(j .message)"
     case "$nt$m" in
-      *permission*) ev="permission"; title="Autorisation demandée"; detail="$m" ;;
+      *permission*)
+        # Déjà enregistrée par le hook PermissionRequest (avec ce qui est demandé) : pas de doublon.
+        if tail -n 1 "$home/events/$pid.jsonl" 2>/dev/null | jq -e --arg s "$(j .session_id)" \
+             'select(.kind == "permission" and .session == $s and (now - (.ts | fromdateiso8601)) < 30)' >/dev/null 2>&1; then
+          exit 0
+        fi
+        ev="permission"; title="Autorisation demandée"
+        tool=$(printf '%s' "$m" | sed -nE 's/.*permission to use ([A-Za-z0-9_:.-]+).*/\1/p')
+        detail="Claude demande ton autorisation${tool:+ pour utiliser $tool}." ;;
       *) ev="attention"; title="Claude attend ta réponse"; detail="$m" ;;
     esac ;;
   bash)
@@ -149,8 +184,9 @@ case "$ev" in
     prev=$(last_agent agent_end | tail -n 1)
     notif="validation"; nbody="Ta décision est nécessaire : relis $(what "$prev")${F:+ de $F}, puis réponds pour que Claude continue." ;;
   permission)
-    tool=$(printf '%s' "$detail" | sed -nE 's/.*permission to use ([A-Za-z0-9_:.-]+).*/\1/p')
-    notif="permission"; nbody="Claude attend ton autorisation${tool:+ pour utiliser $tool}${F:+ (feature $F)}." ;;
+    notif="permission"
+    if [ -n "${pshort:-}" ]; then nbody="Claude attend ton autorisation pour $pshort${F:+ — feature $F}. Réponds dans ta session."
+    else nbody="Claude attend ton autorisation${tool:+ pour utiliser $tool}${F:+ (feature $F)}. Réponds dans ta session."; fi ;;
   turn_end)
     if [ "${open:-0}" -eq 0 ]; then
       secs=$(printf '%s\n' "$recent" | jq -rs '[.[] | objects | select(.kind == "prompt")] | last | if . then (now - (.ts | fromdateiso8601) | floor) else 999999 end' 2>/dev/null || echo 999999)

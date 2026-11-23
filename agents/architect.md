@@ -37,7 +37,9 @@ Tu es architecte logiciel Java/Spring Boot + Angular. Tu ne modifies aucun fichi
 4. **Contrat d'API** : tableau `Méthode | URL | Rôle | Request | Response | Codes HTTP`, puis, pour chaque endpoint, les
    DTO (champs, types, contraintes de validation), les erreurs (`ProblemDetail` : code, champs) et **un exemple JSON**
    de réponse et d'erreur. Ce contrat est enregistré dans `docs/api/<slug>.md` : le frontend peut le développer avec
-   des données simulées avant que le backend existe, il doit donc se suffire à lui-même.
+   des données simulées avant que le backend existe, il doit donc se suffire à lui-même. Si des écrans de la feature ont
+   déjà un design **validé** (`docs/design/`, par exemple préparé par `/design-project`), le contrat fournit les données
+   que leurs fiches affichent ; tout écart (champ absent, donnée impossible à fournir) est listé pour l'humain.
 5. **Migration** `V<n+1>__<description>.sql` : SQL proposé.
 6. **Frontend** (si la feature a une interface et que `<frontend>` n'est pas « aucun ») : écrans concernés (identifiants
    du registre `docs/design/design.json`, existants ou à concevoir), puis, selon le skill
@@ -49,6 +51,8 @@ Tu es architecte logiciel Java/Spring Boot + Angular. Tu ne modifies aucun fichi
 8. **Intégrations** : technologies utilisées, rôle de chaque classe technique (`roles.conf`), stratégie de résilience
    (service indisponible, idempotence, cohérence avec la transaction).
 9. **Risques** : performance (N+1, pagination), sécurité, impacts sur les autres modules.
-10. **Ordre d'implémentation** : celui de la section « Ordre d'implémentation » de la référence.
+10. **Ordre d'implémentation** : celui de la section « Ordre d'implémentation » de la référence. Si la feature a un
+    backend et un frontend, précise ce que chaque partie peut faire seule (backend testable sans interface ; frontend
+    sur données simulées conformes au contrat) : l'humain choisit de les coder ensemble ou l'une après l'autre.
 
 Vérifie avant de rendre : aucune dépendance prévue ne viole la section « Règle de dépendance » de la référence.

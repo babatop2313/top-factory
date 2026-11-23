@@ -25,11 +25,13 @@ Depuis la v4, le kit est un **plugin Claude Code** (`top-factory`), distribué p
  /feature "description"
    ├─► étape 0      → point de départ vérifié (aucune modification en cours, baseBranch à jour)
    ├─► spec-writer   → docs/specs/<feature>.md (règles RM-xx)
-   ├─► architect     → plan découpé selon les couches de la référence
-   ├─► backend-dev   → code, dans l'ordre d'implémentation de la référence
-   ├─► frontend-dev  → Angular
-   ├─► test-writer   → tests par couche, selon la référence + ArchUnit
-   └─► reviewer      → revue : grille de la référence, puis sécurité, perf, tests (lecture seule)
+   ├─► architect     → plan découpé selon les couches de la référence + contrat d'API ; ordre du code au choix
+   ├─► designer      → (si tu le choisis) fiche et maquette des écrans, ou report d'un design Claude Design / Figma
+   ├─► backend-dev   → code, dans l'ordre d'implémentation de la référence  ┐ ensemble, ou une partie
+   ├─► frontend-dev  → Angular                                             │ après l'autre : chacune va
+   ├─► test-writer   → tests par couche, selon la référence + ArchUnit      │ jusqu'à sa revue et son commit
+   └─► reviewer      → revue : grille de la référence, puis sécurité, perf, tests (lecture seule) ┘
+ /feature --resume <slug> --front   → reprend la partie restante (spec, plan et contrat réutilisés)
           │
           ▼
  Garde-fous
@@ -67,7 +69,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude-plugin/plugin.json` | Manifeste du plugin `top-factory` (nom, **version**) |
 | `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/integrate`, `/design-project`, `/design-system`, `/design-screen`, `/design-improve`, `/design-link`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
 | `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids ; front-ui, front-forms) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
@@ -172,7 +174,8 @@ supplémentaire), à côté du plugin.
 ## Conventions et intégrations
 L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dans **`.claude/stack.json`** :
 ```json
-{ "profile": "top", "integrations": ["postgresql", "redis"], "conventions": { "mapping": "mapstruct" } }
+{ "profile": "top", "integrations": ["postgresql", "redis"], "conventions": { "mapping": "mapstruct" },
+  "design": { "tool": "figma", "link": "https://www.figma.com/design/…" } }
 ```
 - **Conventions** (skill `conventions`) : un **socle** non négociable, un **profil** (`top`) qui donne les valeurs par défaut,
   et des **options** que le projet peut surcharger (`mapping`, `lombok`, `errors`, `ids`).
@@ -208,17 +211,27 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
   et **Documentation** (principe, workflow, toutes les commandes et tous les agents, lus dans le kit installé,
   garde-fous, répondre à distance avec Remote Control, dépannage).
 - **Notifications**, seulement quand c'est utile : ta décision est nécessaire pour continuer, Claude attend ton
-  autorisation, tout est terminé, ou un agent passe la main à un autre. Message explicite (« Ta décision est
+  autorisation (avec ce qui est demandé : « modifier un fichier (catalog-list.page.ts) », « lancer une commande (npm) »,
+  jamais le contenu ; on y répond dans la session), tout est terminé, ou un agent passe la main à un autre. Message explicite (« Ta décision est
   nécessaire : relis le plan technique de « authentication », puis réponds pour que Claude continue. »), notification
   du système et, en option, sur le téléphone avec **ntfy** (`/top-factory:dashboard notifications`). Jamais de code
   ni de texte de Claude.
 - Réglages : `~/.top-factory/config.json` (créé au premier événement) ; dossier personnalisable avec `TOP_FACTORY_HOME`.
 
 ## Design et frontend autonome
-- **Design** : l'agent `designer` propose le design system, puis une fiche et une maquette par écran dans `docs/design/`
-  (`/top-factory:design-system`, `design-screen`, `design-improve`) ; un design fait dans **Claude Design** ou **Figma**
-  s'enregistre par son lien (`/top-factory:design-link`). Rien n'est implémenté sans design validé ; tout est visible
-  dans l'onglet Design du tableau de bord.
+- **Design, à ton choix** : à chaque feature, la factory regarde ce qui existe (écrans déjà codés, designs validés, outil
+  du projet) et **recommande** ; tu choisis : designer de la factory, design externe (Claude Design ou Figma) ou sans
+  design. L'agent `designer` propose le design system, puis une fiche et une maquette par écran dans `docs/design/`
+  (`/top-factory:design-system`, `design-screen`, `design-improve`), ou reporte celui de ton outil.
+- **Outil de design enregistré une fois** : `/top-factory:design-link <url>` écrit l'outil et son lien dans le bloc
+  `design` de `.claude/stack.json` (avec ton accord) ; il est annoncé à chaque session et affiché dans l'onglet Design.
+  Le projet Claude Design épinglé par `/design-sync` (`.design-sync/config.json`) est seulement lu, pour proposer son lien.
+- **Design en début de projet** : `/top-factory:design-project` — design system et tout ou partie des écrans prévus,
+  avant les features ; l'architecte aligne ensuite chaque contrat d'API sur les écrans validés.
+- **Backend et frontend par parties** : au plan, tu choisis de les coder ensemble, backend d'abord (l'API se teste pour
+  de vrai avant l'interface) ou frontend d'abord. Chaque partie va jusqu'à sa revue et son commit ; l'avancement est
+  noté dans le plan, et `/top-factory:feature --resume <slug> --front` (ou `--back`) reprend la suite, sur une nouvelle
+  branche si la première partie est déjà fusionnée — y compris sur le poste d'un autre développeur.
 - **Frontend sans backend** : contrat d'API dans `docs/api/`, `/top-factory:feature <besoin> --front` sur des données
   simulées (`ng serve --configuration mock`, absentes du build de production), puis `/top-factory:integrate <feature>`
   quand le backend est prêt.
