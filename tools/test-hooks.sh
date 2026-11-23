@@ -477,10 +477,21 @@ n=$(nlines)
 printf '%s' '{"agent_type":"reviewer"}' | bash "$H/events.sh" agent_start
 ok '[ "$(nlines)" = "$n" ]' "même agent relancé dans les 2 minutes : pas de notification en double"
 for a in architect reviewer reviewer; do printf '{"agent_type":"%s"}' "$a" | bash "$H/events.sh" agent_end; done
+printf '%s' '{"agent_type":"designer","agent_id":"ag-42"}' | bash "$H/events.sh" agent_start
+printf '%s' '{"agent_id":"ag-42","last_assistant_message":"Maquettes prêtes."}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .title)" = "Agent designer a terminé" ] && [ "$(evlast .agent)" = designer ]' "agent repris sans type : retrouvé par son identifiant"
+printf '%s' '{"last_assistant_message":"Fini."}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .title)" = "Un agent a terminé" ]' "agent sans type ni identifiant : libellé neutre (plus « inconnu »)"
 printf '%s' '{}' | bash "$H/events.sh" prompt
 n=$(nlines)
 jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
 ok '[ "$(evlast .kind)" = turn_end ] && [ "$(nlines)" = "$n" ]' "réponse rapide (moins de 30 s) : pas de notification"
+jq -cn '{last_assistant_message: "Les deux écrans sont prêts.\n\nJe m arrête ici en attendant ta validation du design."}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .kind)" = validation ]' "attente sans ⏸ mais demandée explicitement en fin de message → validation"
+jq -cn '{last_assistant_message: "Résumé.\n\n⏸ En attente de ta validation : le design des écrans catalogue-list et catalogue-register-dialog."}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .detail)" = "En attente de ta validation : le design des écrans catalogue-list et catalogue-register-dialog." ]' "validation : dernière ligne ⏸ reprise comme détail"
+jq -cn '{last_assistant_message: "J attends ta validation pour la spec.\n\n(texte long qui suit)\n'"$(head -c 700 /dev/zero | tr '\0' 'z')"'\nTout est fait."}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .kind)" = turn_end ]' "demande de validation ancienne, loin de la fin du message : simple fin de tour"
 jq '.notifications.minTaskSeconds = 0' "$TOP_FACTORY_HOME/config.json" > "$T/c" && mv "$T/c" "$TOP_FACTORY_HOME/config.json"
 printf '%s' '{}' | bash "$H/events.sh" prompt
 jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop

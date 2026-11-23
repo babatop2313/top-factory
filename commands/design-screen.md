@@ -16,3 +16,5 @@ argument-hint: <écran ou feature, ex. catalog-list>
    peux voir la maquette dans le tableau de bord (`/dashboard`, onglet Design du projet).
    **⏸ ARRÊT : attends ma validation.** Mes remarques repartent à `designer` (nouvelle proposition).
 5. Après mon accord : statut `validé` dans `design.json`. Ne commite rien sans mon accord.
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.

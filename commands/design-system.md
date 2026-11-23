@@ -18,3 +18,5 @@ Demande : $ARGUMENTS
 Si le projet a un design system dans Claude Design, propose `/design-sync` (commande de Claude Code) pour partager
 celui du code, ou `/design-link <url>` pour référencer celui de Claude Design.
 Ne commite rien sans mon accord.
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.

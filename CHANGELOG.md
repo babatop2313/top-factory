@@ -1,5 +1,22 @@
 # Changelog
 
+## v4.4.2 — Les validations sont toujours repérées
+Rien à faire dans un projet existant : mettre à jour le plugin.
+
+- **Correctif** : le panneau « Ta réponse » et la notification « ta validation est requise » n'apparaissaient que si
+  Claude écrivait le symbole « ⏸ » ; il écrivait souvent « je m'arrête en attendant ta validation » sans lui.
+  - Règle commune et commandes : à chaque arrêt, le message **se termine par une ligne « ⏸ … »** qui dit ce qui est
+    attendu (« ⏸ En attente de ta validation : le design des écrans … ») ; tous les arrêts de `/feature` sont marqués.
+  - Le journal reconnaît aussi une demande explicite **à la fin** du message (« en attendant ta validation »,
+    « tu valides ? »…) ; le détail reprend la dernière ligne « ⏸ ».
+- **Onglet Design** : quand des écrans ou le design system attendent ta validation, le panneau de réponse s'affiche
+  en haut de l'onglet et sur la page de chaque écran proposé.
+- **« Agent inconnu »** : un agent repris (sans `agent_type` dans le hook) est retrouvé par son identifiant
+  (`agent_id`) ; à défaut, libellé neutre « Un agent a terminé ».
+- **Panneau de réponse** : l'actualisation automatique se met en pause tant qu'il est affiché (elle effaçait le choix en
+  cours) ; l'état « Attend ta validation » de l'en-tête du projet devient un bouton qui mène au panneau.
+- Tests : 239 scénarios en mode copie, 242 en mode plugin.
+
 ## v4.4.1 — Le tableau de bord tient les gros volumes
 Rien à faire dans un projet existant : mettre à jour le plugin ; la page se régénère au prochain événement
 (ou `/top-factory:dashboard`).

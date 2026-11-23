@@ -20,21 +20,21 @@ début de la session) et le chemin de la référence d'architecture active : un 
    relis-les et demande-moi s'ils sont toujours valables au lieu de les réécrire).
 1. **Point de départ** : lis `baseBranch` dans `.claude/factory.json` (`develop` s'il est absent), puis vérifie avec Git,
    **sans rien modifier** :
-   - `git status --porcelain` est vide. Sinon, liste les fichiers modifiés ou non suivis et **ARRÊTE-TOI** :
+   - `git status --porcelain` est vide. Sinon, liste les fichiers modifiés ou non suivis et **⏸ ARRÊTE-TOI** :
      ils suivraient la nouvelle branche. C'est à moi de les commiter ailleurs, de les mettre de côté ou de les annuler ;
-   - la branche courante est `baseBranch`. Si ce n'est pas le cas, indique-la et **ARRÊTE-TOI** :
+   - la branche courante est `baseBranch`. Si ce n'est pas le cas, indique-la et **⏸ ARRÊTE-TOI** :
      je décide s'il faut partir d'elle (feature qui dépend d'une autre) ou revenir sur `baseBranch` ;
    - `git fetch origin <baseBranch>` puis `git rev-list --count HEAD..origin/<baseBranch>` vaut `0`.
-     Sinon, la branche locale est en retard : **ARRÊTE-TOI** et propose `git pull`. Si le fetch échoue (pas de dépôt distant,
+     Sinon, la branche locale est en retard : **⏸ ARRÊTE-TOI** et propose `git pull`. Si le fetch échoue (pas de dépôt distant,
      pas de réseau), signale-le et demande-moi si l'on continue.
    Tu ne fais jamais toi-même de `pull`, `stash`, `reset` ou `checkout` d'une autre branche pour « corriger » le point de départ.
    Si tout est bon, crée la branche `feature/<slug>` (`git checkout -b feature/<slug>`).
 2. **Spec** → agent `spec-writer`, qui écrit `docs/specs/<slug>.md`.
-   Présente-moi le chemin de la spec et les questions ouvertes, puis **ARRÊTE-TOI et ATTENDS** mes réponses et ma validation.
+   Présente-moi le chemin de la spec et les questions ouvertes, puis **⏸ ARRÊTE-TOI et ATTENDS** mes réponses et ma validation.
    Reporte mes réponses dans la spec (section « Décisions ») avant de continuer.
 3. **Plan et contrat d'API** → agent `architect` avec le chemin de la spec. Il rend le plan et, si la feature expose ou
    consomme des endpoints, le **contrat d'API** (chemins, méthodes, DTO, codes d'erreur, rôles, exemples). Présente-moi
-   le plan et **ARRÊTE-TOI et ATTENDS** ma validation explicite. Une fois validé, enregistre le plan **et mes décisions**
+   le plan et **⏸ ARRÊTE-TOI et ATTENDS** ma validation explicite. Une fois validé, enregistre le plan **et mes décisions**
    dans `docs/specs/<slug>-plan.md` et le contrat dans `docs/api/<slug>.md` (jamais dans un dossier temporaire) : c'est
    ce que tu transmets aux agents suivants. Le contrat est la référence commune du backend et du frontend.
 3 bis. **Design** (périmètre frontend ou complet, si la feature a une interface) : lis `docs/design/design.json`
@@ -65,5 +65,8 @@ début de la session) et le chemin de la référence d'architecture active : un 
    puis donne-moi un résumé :
    architecture appliquée, fichiers modifiés par couche, tests (passés/échoués), verdict de la revue,
    et la commande pour pousser la branche.
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi
+(règle « Attendre l'humain ») : c'est elle qui me prévient et qui affiche le panneau de réponse du tableau de bord.
 
 Ne pousse rien et n'ouvre pas de PR/MR sans mon accord.

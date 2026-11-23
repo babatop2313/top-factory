@@ -20,3 +20,5 @@ Bug signalé : $ARGUMENTS
 
 En déléguant à un agent, indique-lui le chemin de `<kit>` (annoncé au début de la session) et celui de la référence
 d'architecture active.
+
+À chaque arrêt « ⏸ », termine ton message par une ligne qui commence par « ⏸ » et dit ce que tu attends de moi.
