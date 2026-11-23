@@ -17,6 +17,10 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    - Lis `<kit>/skills/architecture/references/<architecture>/roles.conf` : rôles que jouera l'intégration et packages associés.
    - Point de départ, comme l'étape 1 de `/feature` : aucune modification non commitée, branche `baseBranch` à jour.
      Puis crée `chore/integration-$ARGUMENTS`.
+   - **Modules concernés** : liste les modules du backend (packages sous le package racine) et demande-moi lesquels
+     auront besoin de `$ARGUMENTS` — par exemple, pour un cache, seulement le module dont une lecture fréquente et
+     coûteuse le justifie. Propose ta recommandation, sans cocher tout par défaut ; « aucun pour le moment » est une
+     réponse valable (la technologie est branchée, une feature l'utilisera plus tard). **⏸ ARRÊTE-TOI** jusqu'à ma réponse.
 
 2. **Dépendances** (`<backend>/pom.xml`) : celles de la section « Dépendances », sans version quand le BOM Spring Boot
    la gère. Vérifie la version de Spring Boot du projet ; si une dépendance de la référence ne correspond pas à cette
@@ -31,8 +35,9 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    par exemple `TestcontainersConfiguration`), et un test qui prouve que le contexte démarre avec l'intégration
    et que son indicateur de santé est `UP` quand il existe.
 
-5. **Déclaration** : ajoute `$ARGUMENTS` au tableau `integrations` de `.claude/stack.json` avec Edit
-   (une règle de permission demande mon accord : c'est voulu).
+5. **Déclaration** : ajoute `$ARGUMENTS` au tableau `integrations` de `.claude/stack.json`, et les modules choisis dans
+   le champ `modules` (`"modules": { "$ARGUMENTS": ["catalog"] }`, liste vide si aucun pour le moment), avec Edit
+   (une règle de permission demande mon accord : c'est voulu). Le hook refusera ensuite son usage dans un autre module.
 
 6. **Contrôle** : `./mvnw clean test` (depuis `<backend>` ; Docker doit tourner). Tout doit être vert,
    `ArchitectureTest` compris, sans modifier ses règles.
@@ -41,7 +46,8 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    - le statut de la référence (testée / non testée) et ce que tu as dû vérifier ou ajuster ;
    - les fichiers créés ou modifiés, les variables d'environnement à définir ;
    - la procédure de développement local (section « Développement local »), pour Windows, macOS et Linux ;
-   - la suite : la feature qui l'utilisera, à lancer avec `/feature`.
+   - les modules concernés et la suite : la feature qui l'utilisera, à lancer avec `/feature`. Un autre module en aura
+     besoin plus tard ? Il s'ajoute au champ `modules`, avec mon accord, quand une spec le justifie.
    Si la référence était « non testée » et que tout a fonctionné, propose de la passer à « testée » **dans le kit**
    (`top-factory`), avec les ajustements découverts : jamais dans la copie du projet, remplacée à chaque mise à jour.
 

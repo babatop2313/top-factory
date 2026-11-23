@@ -19,7 +19,12 @@ Ce skill est un **aiguilleur**. Les intégrations actives sont listées dans `.c
    il dit **où** placer chaque rôle que joue l'intégration (section « Rôle dans l'architecture » de sa référence).
 4. Si la tâche demande une technologie **absente** de `stack.json` : arrête-toi et propose `/add-integration <techno>`.
    N'ajoute jamais une dépendance d'intégration « en passant ».
-5. Si la référence est marquée **« Statut : non testée »** : elle n'a pas encore été validée sur un projet réel.
+5. **Modules concernés** : si `stack.json` a un champ `modules` pour la technologie (`"modules": { "redis": ["catalog"] }`),
+   elle ne s'utilise que dans ces modules (vérifié par le hook) ; un autre module n'en a pas besoin, sauf décision de
+   l'humain (question ouverte de la spec), après laquelle le module s'ajoute à la liste avec son accord. Le même champ
+   vaut pour le serveur MCP (clé `mcp`). Sans champ `modules` pour la technologie, la même prudence s'applique :
+   ne l'utilise que là où la spec le demande.
+6. Si la référence est marquée **« Statut : non testée »** : elle n'a pas encore été validée sur un projet réel.
    Applique-la, mais signale-le dans ta réponse et vérifie avec une attention particulière les noms d'artefacts
    et de propriétés (documentation officielle), qui peuvent avoir changé.
 

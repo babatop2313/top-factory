@@ -34,6 +34,12 @@
   Son code va dans le package de son rôle (`roles.conf` de l'architecture) ou dans `config` ; jamais dans le domaine.
   Le hook `guard-architecture.sh` le vérifie pour chaque intégration active.
 - Une technologie absente de `stack.json` ne s'ajoute pas « en passant » : `/add-integration <techno>` d'abord.
+- **Seulement là où c'est utile** : une intégration (cache Redis, messagerie…) ou des outils MCP ne s'ajoutent qu'aux
+  modules listés dans le champ `modules` de `stack.json` (`{ "redis": ["catalog"], "mcp": ["catalog"] }`) ; le hook
+  d'architecture refuse leur usage ailleurs. Ce n'est pas parce qu'une technologie est branchée que chaque feature
+  l'utilise : on ne met en cache que les lectures fréquentes et coûteuses identifiées par la spec, on n'expose en MCP
+  que ce qui sert à un assistant. Une feature qui en aurait besoin dans un nouveau module le propose en question
+  ouverte ; l'humain décide, puis le module s'ajoute à `modules` avec son accord.
 - Une référence « non testée » s'applique avec prudence : vérifier artefacts et propriétés dans la documentation officielle.
 
 ## Façon de travailler

@@ -16,6 +16,10 @@ avec Write et Edit uniquement, et respecte l'architecture active.
      puis crée `chore/mcp-server`.
    - **Déjà installé ?** Si `pom.xml` contient `spring-ai-starter-mcp-server`, ou si une configuration de sécurité gère `/mcp` :
      arrête-toi, liste ce qui existe déjà, et ne modifie rien.
+   - **Modules concernés** : tous les modules n'ont pas besoin d'outils MCP. Liste les modules du backend et demande-moi
+     lesquels exposeront des outils aux assistants IA (ta recommandation à l'appui ; « aucun pour le moment » est
+     valable). **⏸ ARRÊTE-TOI** jusqu'à ma réponse. L'infrastructure (dépendance, `/mcp`, sécurité) reste globale ; seuls
+     ces modules auront un package d'outils MCP.
 
 2. **Dépendances** (`<backend>/pom.xml`)
    - BOM `org.springframework.ai:spring-ai-bom` dans `dependencyManagement`, à la **dernière version 2.0.x** :
@@ -51,7 +55,10 @@ avec Write et Edit uniquement, et respecte l'architecture active.
    - Garde-fou : refus avec le profil `prod`, refus avec `server.address=0.0.0.0` ; démarrage accepté avec `127.0.0.1`.
    - `./mvnw clean test` (depuis `<backend>`) : tout doit être vert, `ArchitectureTest` compris, **sans modifier ses règles**.
 
-6. **Clôture** : commit `chore(mcp): infrastructure du serveur MCP (Spring AI, profil mcp-local)`, puis donne-moi :
+6. **Déclaration** : ajoute les modules choisis au champ `modules` de `.claude/stack.json`
+   (`"modules": { "mcp": ["catalog"] }`), avec Edit et mon accord. Le hook refusera un outil MCP dans un autre module.
+
+7. **Clôture** : commit `chore(mcp): infrastructure du serveur MCP (Spring AI, profil mcp-local)`, puis donne-moi :
    - la version de Spring AI retenue et pourquoi ;
    - les fichiers créés ou modifiés ;
    - le résultat des tests ;
@@ -63,6 +70,7 @@ avec Write et Edit uniquement, et respecte l'architecture active.
      claude mcp add --transport http <nom-du-projet> http://localhost:8080/mcp
      # puis, dans Claude Code : /mcp
      ```
-   - la suite : créer le premier outil avec `/feature`, en précisant qu'il s'agit d'un outil MCP en lecture seule.
+   - les modules concernés, et la suite : créer le premier outil avec `/feature` dans l'un d'eux, en précisant qu'il
+     s'agit d'un outil MCP en lecture seule.
 
 Ne pousse rien et n'ouvre pas de PR/MR sans mon accord.

@@ -175,8 +175,12 @@ supplémentaire), à côté du plugin.
 L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dans **`.claude/stack.json`** :
 ```json
 { "profile": "top", "integrations": ["postgresql", "redis"], "conventions": { "mapping": "mapstruct" },
+  "modules": { "redis": ["catalog"], "mcp": ["catalog"] },
   "design": { "tool": "figma", "link": "https://www.figma.com/design/…" } }
 ```
+- **Seulement là où c'est utile** (`modules`) : à l'ajout d'une intégration (`/add-integration`) ou du serveur MCP
+  (`/add-mcp-server`), vous choisissez les modules qui en ont besoin ; le hook d'architecture refuse leur usage ailleurs.
+  Rien n'est mis en cache ni exposé en MCP par principe : la spec doit le justifier.
 - **Conventions** (skill `conventions`) : un **socle** non négociable, un **profil** (`top`) qui donne les valeurs par défaut,
   et des **options** que le projet peut surcharger (`mapping`, `lombok`, `errors`, `ids`).
   Priorités : architecture > socle > options du projet > profil.
