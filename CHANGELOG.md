@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.7.0 — Lisibilité : tableau de bord et schémas
+Mettre à jour le plugin, puis `/top-factory:dashboard` (installe l'afficheur de schémas au premier lancement) et, dans
+chaque projet, `/top-factory:architecture` pour obtenir le schéma global.
+
+- **Schémas Mermaid** : `/architecture` — l'architecte propose le schéma global du projet (`docs/architecture/overview.md` :
+  vue d'ensemble, modules, couches du backend, flux principaux, décisions, historique) à partir des choix de
+  l'initialisation ; statut proposé → validé ; mise à jour proposée après `/add-integration`, `/add-mcp-server`,
+  `/add-frontend`, ou sur demande. Chaque plan contient une section **« Schémas »** (composants touchés, séquence du cas
+  principal). Onglet **Architecture** dans le tableau de bord ; schémas de la feature sur la page du projet.
+- **Afficheur Mermaid** (v11.17.2, licence MIT) téléchargé **une seule fois** dans `~/.top-factory/vendor/`, empreinte
+  SHA-256 vérifiée, puis utilisé hors ligne ; mode `strict` ; sans lui, les schémas s'affichent en texte.
+  `dashboard.sh --vendor` le télécharge à la demande ; `TOP_FACTORY_VENDOR=off` désactive le téléchargement automatique.
+- **Parcours en graphe** de chaque feature : tronc commun (branche, spec, plan), voies backend et frontend parallèles,
+  qui se rejoignent à l'intégration puis la PR ; état de chaque voie lu dans la section « Avancement » du plan
+  (terminé, en cours, à faire, hors périmètre), y compris sur une branche de reprise (`--resume`).
+- **Projets actifs et feature en cours** mis en avant (badges, tri, agent au travail et depuis quand).
+- **Qui a fait quoi** : pour chaque agent, durée, fichiers modifiés (nouveau hook `PostToolUse` → `events.sh file`,
+  chemins seulement) et sa ligne **« Bilan : »**, que chaque agent écrit désormais en fin de réponse — seule partie de
+  ses messages gardée (la première ligne des messages n'est plus enregistrée).
+- **Documents** : rendu Markdown enrichi (tableaux alignés et à « | » dans le code, blocs de code avec langage, texte
+  barré, liens automatiques, schémas) ; contrats d'API (`docs/api/`) et architecture listés ; **PDF** soigné (A4,
+  en-tête projet et date, sommaire, numéros de page, sans coupure au milieu d'un tableau, d'un code ou d'un schéma,
+  toujours en clair même en thème sombre).
+- Documentation : README, page Documentation (« Schémas, parcours et historique »), feuille de route.
+- Tests : 283 scénarios en mode copie, 286 en mode plugin.
+
 ## v4.6.0 — Sécurité et fiabilité
 Mettre à jour le plugin. Dans un projet existant :
 - relancer `/top-factory:init` (ou `install.sh`) : `.gitignore` est complété si les `.env` n'y sont pas ignorés, et

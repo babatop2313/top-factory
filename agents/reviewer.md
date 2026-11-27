@@ -59,3 +59,8 @@ Verdict : ✅ OK | ⚠️ OK avec réserves | ❌ À corriger
 Points positifs : ...
 ```
 Toute violation de la règle de dépendance est BLOQUANT. Chaque remarque pointe une ligne précise.
+
+## Bilan (journal du tableau de bord)
+Termine **toujours** ta réponse par une ligne seule : `Bilan : <une phrase>` — ce que tu as fait, chiffré si possible
+(par exemple « Bilan : 23 fichiers, emprunt et retour, 3 cas d'usage, compilation OK »). Une phrase en français, sans code,
+sans chemin complet, sans secret ni donnée personnelle : c'est la seule partie de ton message gardée dans l'historique.

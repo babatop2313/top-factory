@@ -51,3 +51,8 @@ Les exemples de la section **« Exemples de code »** de la référence sont le 
 ## Réponse finale
 Au format exact de la section **« Format de réponse finale »** de la référence,
 en commençant par la ligne « Architecture appliquée : <architecture> ».
+
+## Bilan (journal du tableau de bord)
+Termine **toujours** ta réponse par une ligne seule : `Bilan : <une phrase>` — ce que tu as fait, chiffré si possible
+(par exemple « Bilan : 23 fichiers, emprunt et retour, 3 cas d'usage, compilation OK »). Une phrase en français, sans code,
+sans chemin complet, sans secret ni donnée personnelle : c'est la seule partie de ton message gardée dans l'historique.

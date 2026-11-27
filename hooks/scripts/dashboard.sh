@@ -7,7 +7,9 @@
 #   bash dashboard.sh --open     régénère et l'ouvre dans le navigateur
 #   bash dashboard.sh --prune    retire du registre les projets dont le dossier n'existe plus
 #   bash dashboard.sh --path     affiche le chemin de la page
-# Icônes : Lucide (https://lucide.dev), licence ISC.
+#   bash dashboard.sh --vendor   télécharge l'afficheur de schémas Mermaid (une fois, empreinte SHA-256 vérifiée)
+# Icônes : Lucide (https://lucide.dev), licence ISC. Schémas : Mermaid (https://mermaid.js.org), licence MIT,
+# téléchargé une seule fois dans ~/.top-factory/vendor/ puis utilisé hors ligne.
 set -uo pipefail
 command -v jq >/dev/null 2>&1 || { echo "jq est requis pour le tableau de bord." >&2; exit 1; }
 source "$(dirname "$0")/lib.sh"
@@ -18,8 +20,34 @@ out="$home/dashboard.html"
 mkdir -p "$home/events"
 [ -s "$reg" ] || printf '{}' > "$reg"
 
+# --- Afficheur Mermaid : version figée, empreinte vérifiée, jamais chargé depuis Internet par la page ---
+MERMAID_VERSION="11.17.2"
+MERMAID_SHA256="581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
+vendor="$home/vendor"; mfile="$vendor/mermaid-$MERMAID_VERSION.min.js"
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  else openssl dgst -sha256 "$1" 2>/dev/null | sed 's/.*= //'; fi
+}
+fetch_mermaid() {
+  [ -f "$mfile" ] && return 0
+  command -v curl >/dev/null 2>&1 || { echo "curl est introuvable : schémas affichés en texte." >&2; return 1; }
+  mkdir -p "$vendor" || return 1
+  local tmp="$mfile.$$.part" url
+  for url in "https://cdn.jsdelivr.net/npm/mermaid@$MERMAID_VERSION/dist/mermaid.min.js" \
+             "https://unpkg.com/mermaid@$MERMAID_VERSION/dist/mermaid.min.js"; do
+    if curl -fsSL --max-time 180 -o "$tmp" "$url" 2>/dev/null && [ "$(sha256_of "$tmp")" = "$MERMAID_SHA256" ]; then
+      mv "$tmp" "$mfile" && echo "Afficheur de schémas installé : $mfile" && return 0
+    fi
+    rm -f "$tmp"
+  done
+  echo "Téléchargement de Mermaid impossible (réseau, ou empreinte différente) : schémas affichés en texte." >&2
+  return 1
+}
+
 case "${1:-}" in
   --path) echo "$out"; exit 0 ;;
+  --vendor) fetch_mermaid; exit $? ;;
   --prune)
     tmp="$reg.$$.tmp"; keep='{}'
     for id in $(jq -r 'keys[]' "$reg"); do
@@ -29,6 +57,14 @@ case "${1:-}" in
     done
     printf '%s\n' "$keep" > "$tmp" && mv "$tmp" "$reg" ;;
 esac
+
+# Première fois : téléchargement de Mermaid en arrière-plan (une tentative par jour au plus ; TOP_FACTORY_VENDOR=off l'évite).
+if [ ! -f "$mfile" ] && [ "${TOP_FACTORY_VENDOR:-on}" != "off" ] && \
+   { [ ! -f "$home/.vendor-try" ] || [ -n "$(find "$home/.vendor-try" -mtime +0 2>/dev/null)" ]; }; then
+  touch "$home/.vendor-try" 2>/dev/null
+  ( bash "$0" --vendor >/dev/null 2>&1 & )
+fi
+mermaid_rel=""; [ -f "$mfile" ] && mermaid_rel="vendor/mermaid-$MERMAID_VERSION.min.js"
 
 # Les données passent par des fichiers, jamais par la ligne de commande : sous Windows, une ligne de commande est
 # limitée à 32 000 caractères environ (sous Linux, 128 Ko par argument), ce qu'atteignent vite les specs et maquettes.
@@ -58,9 +94,13 @@ for id in $(jq -r 'keys[]' "$reg" 2>/dev/null); do
       done | sort -t"$(printf '\t')" -k2 -nr | head -20 \
         | jq -Rcs 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], mtime: (.[1] | tonumber)})' > "$work/specs.json"
     fi
-    # Documents lisibles dans la page : 20 specs et plans les plus récents, puis CLAUDE.md (200 Ko maximum chacun).
-    { for f in "$p"/docs/specs/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
+    # Documents lisibles dans la page : schéma d'architecture, 20 specs et plans, 10 contrats d'API les plus récents,
+    # puis CLAUDE.md (200 Ko maximum chacun).
+    { [ -f "$p/docs/architecture/overview.md" ] && echo "$p/docs/architecture/overview.md"
+      for f in "$p"/docs/specs/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
         | sort -nr | head -20 | cut -f2-
+      for f in "$p"/docs/api/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
+        | sort -nr | head -10 | cut -f2-
       for c in CLAUDE.md claude.md; do [ -f "$p/$c" ] && { echo "$p/$c"; break; }; done; } > "$work/list.txt"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
@@ -134,9 +174,9 @@ user=$(git config --global user.name 2>/dev/null | awk '{print $1}')
 [ -n "$user" ] || user="${USERNAME:-${USER:-}}"
 # Aucun « < » brut dans les données : rien ne peut fermer la balise <script>.
 if ! jq -cn --slurpfile p "$work/projects.json" --arg g "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$(kit_version)" \
-          --arg prefix "$prefix" --arg user "$user" --arg home "$home" \
+          --arg prefix "$prefix" --arg user "$user" --arg home "$home" --arg mermaid "$mermaid_rel" \
           --slurpfile commands "$work/commands.json" --slurpfile agents "$work/agents.json" \
-          '{generated: $g, kit: $v, prefix: $prefix, user: $user, home: $home,
+          '{generated: $g, kit: $v, prefix: $prefix, user: $user, home: $home, mermaid: $mermaid,
             projects: $p[0], docs: {commands: $commands[0], agents: $agents[0]}}' 2>>"$log" \
      | sed 's#<#\\u003c#g' > "$work/data.json" || [ ! -s "$work/data.json" ]; then
   echo "$(date -u +%FT%TZ) génération impossible : la page précédente est conservée (détails ci-dessus)" >> "$log"
@@ -309,7 +349,17 @@ cat <<'TF_HTML_END'
   .md pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; }
   .md pre code { background: none; border: none; padding: 0; white-space: pre; }
   .md blockquote { border-left: 3px solid var(--accent); padding: 4px 14px; color: var(--text-2); background: var(--surface-2); border-radius: 0 8px 8px 0; }
-  .md table { display: block; overflow-x: auto; } .md th { text-transform: none; font-size: 13px; letter-spacing: 0; color: var(--text); background: var(--surface-2); }
+  .md .table-wrap { overflow-x: auto; margin: 0 0 14px; } .md .table-wrap table { margin: 0; min-width: 60%; }
+  .md table { border-collapse: collapse; } .md th, .md td { border: 1px solid var(--line); padding: 7px 10px; vertical-align: top; }
+  .md tbody tr:nth-child(even) td { background: var(--surface-2); }
+  .md del { color: var(--text-3); }
+  .md .codeblock { position: relative; margin: 0 0 14px; } .md .codeblock pre { margin: 0; }
+  .md .codeblock .lang { position: absolute; top: 6px; right: 10px; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+  .mmd { margin: 0 0 16px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow-x: auto; text-align: center; }
+  .mmd pre.mermaid { margin: 0; text-align: left; background: none; border: none; padding: 0; white-space: pre; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-2); }
+  .mmd pre.mermaid[data-processed] { text-align: center; white-space: normal; }
+  .mmd .mmd-note { display: block; margin-top: 8px; font-size: 12px; color: var(--text-3); text-align: left; }
+  .md th { text-transform: none; font-size: 13px; letter-spacing: 0; color: var(--text); background: var(--surface-2); }
   .md hr { border: none; border-top: 1px solid var(--line); margin: 22px 0; }
   .md a { color: var(--accent); }
   .doc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
@@ -340,11 +390,63 @@ cat <<'TF_HTML_END'
   :root[data-theme="dark"] .btn.primary { color: #0b0d12; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0b0d12; } }
   .copied { color: var(--emerald); font-size: 13px; font-weight: 560; }
+  .print-only { display: none; }
+  /* Activité : projets actifs, agent au travail */
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--emerald); background: var(--emerald-soft); padding: 2px 9px; border-radius: 999px; }
+  .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+  .card.is-live { border-color: color-mix(in srgb, var(--emerald) 45%, var(--line)); }
+  .now { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--sky-soft); color: var(--sky); font-weight: 560; margin: 0 0 14px; }
+  /* Parcours d'une feature : tronc commun, voies backend et frontend, intégration */
+  .lanes-wrap { overflow-x: auto; padding: 4px 2px 8px; }
+  .lanes { display: block; min-width: 860px; width: 100%; height: auto; }
+  .lanes text { font: 600 14px ui-sans-serif, system-ui, sans-serif; fill: var(--text); }
+  .lanes text.sub { font-weight: 450; font-size: 12px; fill: var(--text-3); }
+  .lanes text.lane { font-weight: 650; font-size: 12.5px; fill: var(--text-2); letter-spacing: .03em; }
+  .mmd svg { max-width: none; height: auto; }
+  .lanes .edge { fill: none; stroke: var(--line); stroke-width: 2; } .lanes .edge.on { stroke: var(--accent); }
+  .lanes .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+  .lanes .node.s-done rect { fill: var(--accent-soft); stroke: var(--accent); }
+  .lanes .node.s-active rect { fill: var(--sky-soft); stroke: var(--sky); stroke-width: 2; }
+  .lanes .node.s-waiting rect { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 2; }
+  .lanes .node.s-skipped rect, .lanes .node.s-out rect { stroke-dasharray: 4 3; }
+  .lanes .node.s-out text { fill: var(--text-3); }
+  .lanes .node svg { color: var(--text-3); } .lanes .node.s-done svg { color: var(--accent); }
+  .lanes .node.s-active svg { color: var(--sky); } .lanes .node.s-waiting svg { color: var(--amber); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; border: 1.5px solid var(--line); vertical-align: -1px; }
+  .legend .l-done { background: var(--accent-soft); border-color: var(--accent); } .legend .l-active { background: var(--sky-soft); border-color: var(--sky); }
+  .legend .l-waiting { background: var(--amber-soft); border-color: var(--amber); } .legend .l-out { border-style: dashed; }
+  /* Qui a fait quoi */
+  .runs { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .runs th { text-align: left; font-size: 12px; color: var(--text-3); font-weight: 600; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .runs td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .runs tr:last-child td { border-bottom: none; }
+  .runs details summary { cursor: pointer; color: var(--text-2); } .runs details ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; }
+  @page { size: A4; margin: 18mm 15mm 18mm; }
+  @page { @bottom-right { content: counter(page) " / " counter(pages); font-size: 9pt; color: #666; } }
   @media print {
-    aside, .no-print, .back, .doc-toc, .doc-actions { display: none !important; }
+    :root, :root[data-theme="dark"] { --bg: #fff; --surface: #fff; --surface-2: #f6f7f9; --text: #111; --text-2: #333; --text-3: #666; --line: #d9dce1;
+      --accent: #3730a3; --accent-soft: #eef2ff; --amber-soft: #fef3c7; --sky-soft: #e0f2fe; }
+    html, body { background: #fff !important; color: #111; font-size: 10.5pt; }
+    aside, .no-print, .back, .doc-toc, .doc-actions, .callout, .page-title, .lead { display: none !important; }
+    .print-only { display: block; }
     .app { display: block; background: #fff; } main { padding: 0; max-width: none; }
-    body { background: #fff; color: #000; } .card { box-shadow: none; border: none; } .md { padding: 0; }
-    .doc-view { display: block; } .md pre, .md code { background: #f5f5f5; }
+    .card { box-shadow: none; border: none; } .md { padding: 0; font-size: 10.5pt; line-height: 1.5; }
+    .doc-view { display: block; }
+    .print-head { border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+    .print-head .t { font-size: 18pt; font-weight: 700; } .print-head .m { font-size: 9pt; color: #555; margin-top: 2px; }
+    .print-toc { border: 1px solid #d9dce1; border-radius: 6px; padding: 10px 14px; margin: 0 0 16px; font-size: 9.5pt; }
+    .print-toc b { display: block; margin-bottom: 4px; } .print-toc .h3 { padding-left: 14px; }
+    .md h1, .md h2, .md h3, .md h4 { break-after: avoid; page-break-after: avoid; }
+    .md h2 { margin-top: 1.3em; }
+    .md pre, .md .codeblock, .md blockquote, .mmd, .md tr, .md img { break-inside: avoid; page-break-inside: avoid; }
+    .md .table-wrap { overflow: visible; } .md table { width: 100%; } .md thead { display: table-header-group; }
+    .md pre { white-space: pre-wrap; } .md pre code { white-space: pre-wrap; }
+    .md a { color: #111; text-decoration: underline; }
+    .md pre, .md code, .md tbody tr:nth-child(even) td, .mmd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .mmd { border-color: #d9dce1; } .mmd .mmd-note { display: none; }
   }
   @media (max-width: 900px) {
     .app { grid-template-columns: 1fr; background: var(--bg); }
@@ -405,6 +507,8 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       if (/^`[^`]+`$/.test(part)) return '<code>' + esc(part.slice(1, -1)) + '</code>';
       let h = esc(part);
       h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+|#[^)\s]*)\)/g, (m0, txt, url) => `<a href="${url}"${url[0] === '#' ? '' : ' target="_blank" rel="noopener noreferrer"'}>${txt}</a>`);
+      h = h.replace(/&lt;(https?:\/\/[^\s&]+)&gt;/g, (m0, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+      h = h.replace(/~~([^~]+)~~/g, '<del>$1</del>');
       h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
       h = h.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>').replace(/(^|[\s(])_([^_\s][^_]*)_(?=[\s.,;:!?)]|$)/g, '$1<em>$2</em>');
       return h;
@@ -416,13 +520,33 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     let i = 0, n = 0;
     const slug = () => 'h-' + (++n);
     const isTableSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
-    const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => inlineMd(c.trim()));
+    // Cellules d'un tableau : « | » ignoré dans du code (`a|b`) et quand il est échappé (\|).
+    const split = l => {
+      const t = l.trim().replace(/^\|/, '').replace(/\|$/, ''), out = []; let cur = '', code = false;
+      for (let k = 0; k < t.length; k++) {
+        const c = t[k];
+        if (c === '\\' && t[k + 1] === '|') { cur += '|'; k++; continue; }
+        if (c === '`') code = !code;
+        if (c === '|' && !code) { out.push(cur); cur = ''; continue; }
+        cur += c;
+      }
+      out.push(cur); return out.map(c => c.trim());
+    };
+    const cells = l => split(l).map(inlineMd);
+    const aligns = l => split(l).map(c => /^:-+:$/.test(c) ? 'center' : /-+:$/.test(c) ? 'right' : '');
+    const td = (tag, c, a) => `<${tag}${a ? ` style="text-align:${a}"` : ''}>${c}</${tag}>`;
     while (i < lines.length) {
       const l = lines[i];
       if (/^\s*```/.test(l)) {
+        const lang = (l.trim().slice(3).trim().split(/\s+/)[0] || '').toLowerCase();
         const buf = []; i++;
         while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
-        i++; out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>'); continue;
+        i++;
+        const src = buf.join('\n');
+        // Schéma Mermaid : dessiné par l'afficheur local s'il est installé, sinon montré en texte.
+        if (lang === 'mermaid') out.push(`<figure class="mmd"><pre class="mermaid" data-src="${esc(src)}">${esc(src)}</pre></figure>`);
+        else out.push(`<div class="codeblock">${lang ? `<span class="lang">${esc(lang)}</span>` : ''}<pre><code>${esc(src)}</code></pre></div>`);
+        continue;
       }
       let m = l.match(/^(#{1,6})\s+(.*)$/);
       if (m) {
@@ -432,10 +556,10 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       }
       if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(l)) { out.push('<hr>'); i++; continue; }
       if (/\|/.test(l) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
-        const head = cells(l); i += 2; const rows = [];
+        const head = cells(l), al = aligns(lines[i + 1]); i += 2; const rows = [];
         while (i < lines.length && /\|/.test(lines[i]) && lines[i].trim()) rows.push(cells(lines[i++]));
-        out.push('<table><thead><tr>' + head.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>' +
-                 rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</tbody></table>');
+        out.push('<div class="table-wrap"><table><thead><tr>' + head.map((c, k) => td('th', c, al[k])).join('') + '</tr></thead><tbody>' +
+                 rows.map(r => '<tr>' + r.map((c, k) => td('td', c, al[k])).join('') + '</tr>').join('') + '</tbody></table></div>');
         continue;
       }
       if (/^\s*>/.test(l)) {
@@ -539,6 +663,120 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
              waiting: st.indexOf('waiting'), lastTs, kind: model === FIX ? 'Correction' : 'Feature' };
   }
 
+  // ---------- Parcours d'une feature en graphe : tronc commun, voies backend et frontend, intégration ----------
+  const STATE_TEXT2 = Object.assign({}, STATE_TEXT, { out: 'Hors périmètre' });
+  const featSlug = b => b.replace(/^[^/]+\//, '').replace(/-(front|back|frontend|backend)$/i, '').toLowerCase();
+  function planOf(p, f) {
+    const slug = featSlug(f.branch);
+    return (p.docs || []).find(d => /^docs\/specs\//.test(d.rel) && d.name.toLowerCase() === slug + '-plan.md')
+        || (p.docs || []).find(d => /^docs\/specs\//.test(d.rel) && /-plan\.md$/i.test(d.name) && d.name.toLowerCase().includes(slug)) || null;
+  }
+  // Section « Avancement » du plan : état de chaque partie (à faire, en cours, terminé) et ordre choisi.
+  function progressOf(plan) {
+    if (!plan) return null;
+    const m = plan.content.replace(/\r/g, '').match(/^##\s+Avancement\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+    if (!m) return null;
+    const res = { order: '', parts: {} };
+    const o = m[1].match(/Ordre\s*:\s*(.+)/i); if (o) res.order = o[1].trim();
+    m[1].split('\n').forEach(l => {
+      const c = l.split('|').map(x => x.trim()).filter(Boolean);
+      if (c.length < 2) return;
+      const part = /^back/i.test(c[0]) ? 'back' : /^front/i.test(c[0]) ? 'front' : null;
+      if (!part) return;
+      const t = c[1].toLowerCase();
+      res.parts[part] = /termin/.test(t) ? 'done' : /en cours/.test(t) ? 'active' : 'todo';
+    });
+    return res;
+  }
+  function lanesOf(p, f) {
+    const evs = (p.events || []).filter(e => e.branch === f.branch);
+    const S = { 'code-b': 'todo', 'tests-b': 'todo', 'review-b': 'todo', 'commit-b': 'todo',
+                design: 'todo', 'code-f': 'todo', 'tests-f': 'todo', 'review-f': 'todo', 'commit-f': 'todo' };
+    const lane = id => (id === 'design' || /-f$/.test(id)) ? 'front' : 'back';
+    const ORDER = ['code', 'tests', 'review', 'commit'];
+    const idOf = (step, pt) => step + (pt === 'back' ? '-b' : '-f');
+    let cur = [], lastStep = null, lastParts = [];
+    // Avant une étape : les précédentes de la même voie sont faites (ou sautées si elles n'ont jamais eu lieu).
+    const advance = (step, pts) => pts.forEach(pt => ORDER.slice(0, ORDER.indexOf(step)).forEach(o => {
+      const id = idOf(o, pt); if (S[id] === 'todo') S[id] = 'skipped'; if (S[id] === 'active' || S[id] === 'waiting') S[id] = 'done';
+    }));
+    evs.forEach(e => {
+      const a = agentName(e.agent);
+      if (e.kind === 'agent_start') {
+        if (a === 'designer') { S.design = 'active'; lastStep = 'design'; return; }
+        let pts, step;
+        if (a === 'backend-dev') { pts = ['back']; step = 'code'; }
+        else if (a === 'frontend-dev') { pts = ['front']; step = 'code'; if (S.design === 'todo') S.design = 'skipped'; }
+        else if (a === 'test-writer' || a === 'reviewer') { pts = cur.length ? cur : lastParts; step = a === 'test-writer' ? 'tests' : 'review'; }
+        else return;
+        pts.forEach(pt => { if (!cur.includes(pt)) cur.push(pt); });
+        advance(step, pts); pts.forEach(pt => { S[idOf(step, pt)] = 'active'; });
+        lastStep = step; lastParts = pts;
+      } else if (e.kind === 'agent_end') {
+        if (a === 'designer') { if (S.design === 'active') S.design = 'done'; return; }
+        Object.keys(S).forEach(k => { if (k !== 'design' && S[k] === 'active') S[k] = 'done'; });
+      } else if (e.kind === 'validation') {
+        if (lastStep === 'design') { if (['active', 'done'].includes(S.design)) S.design = 'waiting'; }
+        else if (lastStep) lastParts.forEach(pt => { const id = idOf(lastStep, pt); if (['active', 'done'].includes(S[id])) S[id] = 'waiting'; });
+      } else if (e.kind === 'prompt') {
+        Object.keys(S).forEach(k => { if (S[k] === 'waiting') S[k] = 'done'; });
+      } else if (e.kind === 'commit' && cur.length) {
+        advance('commit', cur); cur.forEach(pt => { S[idOf('commit', pt)] = 'done'; });
+        lastParts = cur; cur = []; lastStep = null;
+      }
+    });
+    const plan = planOf(p, f), prog = progressOf(plan);
+    const scope = prog && Object.keys(prog.parts).length ? prog.parts : null;
+    ['back', 'front'].forEach(pt => {
+      const ids = Object.keys(S).filter(k => lane(k) === pt);
+      if (scope && !(pt in scope)) ids.forEach(k => { S[k] = 'out'; });
+      else if (scope && scope[pt] === 'done') ids.forEach(k => { if (S[k] !== 'done') S[k] = k === 'design' ? 'skipped' : 'done'; });
+    });
+    if (f.st[3] === 'skipped' && S.design === 'todo' && ['done', 'active'].includes(S['code-f'])) S.design = 'skipped';
+    const trunk = { branch: f.st[0], spec: f.st[1], plan: f.st[2] };
+    if (prog) ['spec', 'plan'].forEach(k => { if (trunk[k] === 'todo' || trunk[k] === 'skipped') trunk[k] = 'done'; });
+    const inScope = ['back', 'front'].filter(pt => S[pt === 'back' ? 'code-b' : 'code-f'] !== 'out');
+    const laneDone = pt => S[pt === 'back' ? 'commit-b' : 'commit-f'] === 'done';
+    const integ = inScope.length && inScope.every(laneDone) ? 'done' : inScope.some(laneDone) || evs.some(e => e.command === 'integrate') ? 'active' : 'todo';
+    const pr = f.st[f.st.length - 1] === 'done' && integ === 'done' ? 'done' : 'todo';
+    return { S, trunk, integ, pr, prog, plan };
+  }
+  function laneGraph(L) {
+    const W = 106, H = 50, NODE = (id, x, yc, label, ic, st) => {
+      const y = yc - H / 2, glyph = st === 'done' ? 'check' : st === 'waiting' ? 'circle-pause' : st === 'active' ? 'loader-circle' : ic;
+      return `<g class="node s-${st}"><title>${esc(label)} : ${esc(STATE_TEXT2[st] || '')}</title><rect x="${x}" y="${y}" width="${W}" height="${H}" rx="11"/>
+        <svg x="${x + 9}" y="${yc - 8}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[glyph] || ICONS.circle}</svg>
+        <text x="${x + 31}" y="${yc - 2}">${esc(label)}</text><text class="sub" x="${x + 31}" y="${yc + 13}">${esc(STATE_TEXT2[st] || '')}</text></g>`;
+    };
+    const yT = 127, yB = 50, yF = 204, X = [10, 126, 242], XL = [376, 492, 608, 724, 840], XI = 976, XP = 1092;
+    const on = st => st === 'done' ? ' on' : '';
+    const line = (x1, y1, x2, y2, st) => y1 === y2 ? `<path class="edge${on(st)}" d="M${x1} ${y1} L${x2} ${y2}"/>`
+      : `<path class="edge${on(st)}" d="M${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}"/>`;
+    const S = L.S, out = [];
+    out.push(line(X[0] + W, yT, X[1], yT, L.trunk.branch), line(X[1] + W, yT, X[2], yT, L.trunk.spec));
+    out.push(line(X[2] + W, yT, XL[1], yB, L.trunk.plan), line(X[2] + W, yT, XL[0], yF, L.trunk.plan));
+    const back = ['code-b', 'tests-b', 'review-b', 'commit-b'], front = ['design', 'code-f', 'tests-f', 'review-f', 'commit-f'];
+    back.forEach((id, k) => { if (k) out.push(line(XL[k] + W, yB, XL[k + 1], yB, S[back[k - 1]])); });
+    front.forEach((id, k) => { if (k) out.push(line(XL[k - 1] + W, yF, XL[k], yF, S[front[k - 1]])); });
+    out.push(line(XL[4] + W, yB, XI, yT, S['commit-b']), line(XL[4] + W, yF, XI, yT, S['commit-f']), line(XI + W, yT, XP, yT, L.integ));
+    const laneTxt = pt => { const st = L.prog && L.prog.parts[pt]; return st === 'done' ? ' · terminé' : st === 'active' ? ' · en cours' : st === 'todo' ? ' · à faire' : ''; };
+    out.push(`<text class="lane" x="${XL[1]}" y="16">BACKEND${laneTxt('back')}</text><text class="lane" x="${XL[0]}" y="248">FRONTEND${laneTxt('front')}</text>`);
+    out.push(NODE('branch', X[0], yT, 'Branche', 'git-branch', L.trunk.branch), NODE('spec', X[1], yT, 'Spec', 'file-text', L.trunk.spec), NODE('plan', X[2], yT, 'Plan', 'compass', L.trunk.plan));
+    [['Code', 'code'], ['Tests', 'flask-conical'], ['Revue', 'search-check'], ['Commit', 'git-commit-horizontal']].forEach(([l, ic], k) => out.push(NODE(back[k], XL[k + 1], yB, l, ic, S[back[k]])));
+    [['Design', 'palette'], ['Code', 'code'], ['Tests', 'flask-conical'], ['Revue', 'search-check'], ['Commit', 'git-commit-horizontal']].forEach(([l, ic], k) => out.push(NODE(front[k], XL[k], yF, l, ic, S[front[k]])));
+    out.push(NODE('integ', XI, yT, 'Intégration', 'plug', L.integ), NODE('pr', XP, yT, 'Pull Request', 'git-pull-request', L.pr));
+    return `<div class="lanes-wrap"><svg class="lanes" viewBox="0 0 1206 256" role="img" aria-label="Parcours de la feature : tronc commun, voies backend et frontend, intégration">${out.join('')}</svg></div>
+      <div class="legend"><span><i class="l-done"></i>Terminé</span><span><i class="l-active"></i>En cours</span><span><i class="l-waiting"></i>Ta validation</span><span><i></i>À venir</span><span><i class="l-out"></i>Non utilisé ou hors périmètre</span>${L.prog && L.prog.order ? `<span>· Ordre : ${esc(L.prog.order)}</span>` : ''}</div>`;
+  }
+  // Schémas Mermaid d'un document (section « Schémas » d'un plan, par exemple).
+  function mermaidBlocks(content, max) {
+    const out = [], re = /^\s*```mermaid\s*\n([\s\S]*?)^\s*```/gm; let m;
+    while ((m = re.exec(String(content || '').replace(/\r/g, ''))) && out.length < (max || 3)) out.push(m[1].replace(/\n$/, ''));
+    return out;
+  }
+  const mmdFigure = src => `<figure class="mmd"><pre class="mermaid" data-src="${esc(src)}">${esc(src)}</pre></figure>`;
+  const archDoc = p => (p.docs || []).find(d => d.rel === 'docs/architecture/overview.md') || null;
+
   // ---------- État d'un projet ----------
   const STATES = {
     validation: { tone: 'amber', icon: 'circle-pause', label: 'Attend ta validation', todo: true },
@@ -578,9 +816,53 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     const features = Object.entries(byBranch).map(([b, list]) => ({ branch: b, name: b.replace(/^[^/]+\//, '').replace(/[-_]/g, ' '), ...buildProcess(b, list) }))
       .sort((a, b) => (b.lastTs || '').localeCompare(a.lastTs || ''));
     const current = features.find(f => f.branch === p.branch) || null;
-    return { ...p, key, state: STATES[key], last, features, current };
+    // Actif : une session ouverte (pas encore fermée) avec de l'activité dans les 2 dernières heures, ou une activité
+    // de moins de 20 minutes. Agents au travail : démarrés et pas encore terminés depuis l'ouverture de la session.
+    let sessionOpen = false;
+    ev.forEach(e => { if (e.kind === 'session_start') sessionOpen = true; if (e.kind === 'session_end') sessionOpen = false; });
+    const age = last ? Date.now() - new Date(last.ts).getTime() : Infinity;
+    const active = p.exists && (age < 1200000 || (sessionOpen && age < 7200000));
+    const runs = agentRuns(ev);
+    const workingNow = active ? runs.filter(r => r.running) : [];
+    features.forEach(f => { f.runs = runs.filter(r => r.branch === f.branch); f.live = active && f.branch === p.branch; });
+    return { ...p, key, state: STATES[key], last, features, current, active, runs, workingNow };
   }
-  const projects = (D.projects || []).map(analyse).sort((a, b) => ((b.last || {}).ts || '').localeCompare((a.last || {}).ts || ''));
+  // Qui a fait quoi : chaque passage d'un agent (début, fin, durée, fichiers modifiés, bilan).
+  function agentRuns(ev) {
+    const runs = [], open = [];
+    ev.forEach(e => {
+      if (e.kind === 'session_start') { open.splice(0).forEach(r => { r.running = false; r.lost = true; }); }
+      if (e.kind === 'agent_start') {
+        const r = { agent: agentName(e.agent), id: e.agentId || '', start: e.ts, end: null, branch: e.branch || '', running: true, files: [], nfiles: 0, bilan: '' };
+        runs.push(r); open.push(r);
+      } else if (e.kind === 'agent_end') {
+        let k = -1;
+        for (let n = open.length - 1; n >= 0; n--) if ((e.agentId && open[n].id === e.agentId) || (!e.agentId && open[n].agent === agentName(e.agent))) { k = n; break; }
+        const r = k >= 0 ? open.splice(k, 1)[0] : (() => { const x = { agent: agentName(e.agent), id: e.agentId || '', start: null, branch: e.branch || '' }; runs.push(x); return x; })();
+        Object.assign(r, { end: e.ts, running: false, files: e.files || [], nfiles: e.nfiles || (e.files || []).length, bilan: e.detail || '' });
+      }
+    });
+    return runs;
+  }
+  const dur = (a, b) => {
+    if (!a || !b) return '';
+    const m = Math.round((new Date(b) - new Date(a)) / 60000);
+    return m < 1 ? '< 1 min' : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
+  };
+  const AGENT_LABEL = { 'spec-writer': 'Spécification', architect: 'Architecte', designer: 'Designer', 'backend-dev': 'Développeur backend',
+    'frontend-dev': 'Développeur frontend', 'test-writer': 'Tests', reviewer: 'Relecteur' };
+  const agentLabel = a => AGENT_LABEL[a] || (a ? a : 'Agent');
+  function runsTable(runs) {
+    if (!runs.length) return emptyBox('history', 'Aucun passage d\'agent', 'Chaque agent apparaîtra ici avec sa durée, ses fichiers modifiés et son bilan.');
+    return `<div class="card" style="overflow-x:auto"><table class="runs"><thead><tr><th>Agent</th><th>Quand</th><th>Durée</th><th>Fichiers</th><th>Bilan</th></tr></thead><tbody>${
+      runs.slice(-20).reverse().map(r => `<tr><td><b>${esc(agentLabel(r.agent))}</b>${r.running ? ' <span class="live">au travail</span>' : ''}</td>
+        <td class="faint" title="${esc(fmt(r.start || r.end))}">${ago(r.start || r.end)}</td>
+        <td>${r.running ? dur(r.start, new Date().toISOString()) : dur(r.start, r.end) || '—'}</td>
+        <td>${r.nfiles ? `<details><summary>${r.nfiles} fichier${r.nfiles > 1 ? 's' : ''}</summary><ul>${r.files.map(f => `<li class="mono">${esc(f)}</li>`).join('')}${r.nfiles > r.files.length ? `<li class="faint">… et ${r.nfiles - r.files.length} autres</li>` : ''}</ul></details>` : '<span class="faint">—</span>'}</td>
+        <td>${r.bilan ? esc(r.bilan) : r.running ? '<span class="faint">en cours…</span>' : '<span class="faint">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  const projects = (D.projects || []).map(analyse).sort((a, b) =>
+    (b.state.todo ? 2 : b.active ? 1 : 0) - (a.state.todo ? 2 : a.active ? 1 : 0) || ((b.last || {}).ts || '').localeCompare((a.last || {}).ts || ''));
   const todo = projects.filter(p => p.state.todo);
   const working = projects.filter(p => p.state.work);
 
@@ -700,6 +982,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   function projectTabs(p, on) {
     const id = encodeURIComponent(p.id);
     return `<nav class="seg no-print"><a href="#/projet/${id}" class="${on === 'suivi' ? 'on' : ''}">${icon('workflow', 'sm')} Suivi</a>` +
+      `<a href="#/projet/${id}/architecture" class="${on === 'architecture' ? 'on' : ''}">${icon('layers', 'sm')} Architecture${archDoc(p) && /statut\s*:\s*propos/i.test(archDoc(p).content.slice(0, 300)) ? ' <span class="count alert" style="margin:0">!</span>' : ''}</a>` +
       `<a href="#/projet/${id}/design" class="${on === 'design' ? 'on' : ''}">${icon('palette', 'sm')} Design${p.design && p.design.screens.some(x => x.status === 'proposé') ? ' <span class="count alert" style="margin:0">!</span>' : ''}</a></nav>`;
   }
   function viewDesign(id) {
@@ -773,6 +1056,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   }
   function feedItem(e, p) {
     const tone = EVENT_TONE[e.kind] || 'slate';
+    if (e.kind === 'agent_end' && (e.nfiles || e.detail)) e = Object.assign({}, e, { detail: [e.detail, e.nfiles ? e.nfiles + ' fichier' + (e.nfiles > 1 ? 's' : '') + ' modifié' + (e.nfiles > 1 ? 's' : '') : ''].filter(Boolean).join(' · ') });
     return `<div class="feed-item">${badge(EVENT_ICON[e.kind] || 'circle', tone, 'sm')}
       <div><div>${p ? `<b>${esc(p.name)}</b> · ` : ''}${esc((e.title || '').replace(/Agent [\w-]+:/, 'Agent '))}</div>${e.detail ? `<div class="faint">${esc(e.detail)}</div>` : ''}
       ${e.branch ? `<div class="faint">${icon('git-branch', 'sm')} <span class="mono">${esc(e.branch)}</span></div>` : ''}</div>
@@ -786,11 +1070,12 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     const sum = projects.length === 0 ? 'Aucun projet suivi pour l\'instant.'
       : todo.length ? `${todo.length === 1 ? 'Un projet attend' : todo.length + ' projets attendent'} une action de ta part.`
       : working.length ? 'Les agents travaillent, rien ne t\'attend pour le moment.' : 'Tout est calme : rien ne t\'attend.';
-    const feats = projects.flatMap(p => p.features.slice(0, 3).map(f => ({ p, f }))).sort((a, b) => (b.f.lastTs || '').localeCompare(a.f.lastTs || '')).slice(0, 6);
+    const feats = projects.flatMap(p => p.features.slice(0, 3).map(f => ({ p, f }))).sort((a, b) => (b.f.live ? 1 : 0) - (a.f.live ? 1 : 0) || (b.f.lastTs || '').localeCompare(a.f.lastTs || '')).slice(0, 6);
+    const live = projects.filter(p => p.active);
     const feed = projects.flatMap(p => (p.events || []).filter(e => e.kind !== 'prompt').map(e => ({ e, p }))).sort((a, b) => b.e.ts.localeCompare(a.e.ts)).slice(0, 8);
     return `<h1 class="page-title">${hello} 👋</h1><p class="lead">${sum}</p>
     <div class="kpis">
-      <div class="card kpi">${badge('folder-kanban', 'accent')}<div><b>${projects.length}</b><span>projet${projects.length > 1 ? 's' : ''} suivi${projects.length > 1 ? 's' : ''}</span></div></div>
+      <div class="card kpi">${badge('folder-kanban', 'accent')}<div><b>${live.length}<small class="faint" style="font-size:14px;font-weight:500"> / ${projects.length}</small></b><span>projet${live.length > 1 ? 's' : ''} actif${live.length > 1 ? 's' : ''}</span></div></div>
       <div class="card kpi">${badge('bell', 'amber')}<div><b>${todo.length}</b><span>en attente de toi</span></div></div>
       <div class="card kpi">${badge('bot', 'sky')}<div><b>${working.length}</b><span>agent${working.length > 1 ? 's' : ''} au travail</span></div></div>
       <div class="card kpi">${badge('list-checks', 'emerald')}<div><b>${feats.length}</b><span>feature${feats.length > 1 ? 's' : ''} en cours</span></div></div>
@@ -802,8 +1087,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         <a class="btn" href="#/projet/${encodeURIComponent(p.id)}">${p.key === 'validation' ? 'Répondre' : 'Voir le projet'} ${icon('arrow-right', 'sm')}</a></div>`).join('')
       : emptyBox('sparkles', 'Rien à faire pour toi', 'Tu seras prévenu dès qu\'une validation ou une autorisation sera nécessaire.')}</div>
     <h2 class="section">${icon('workflow')} Features en cours</h2>
-    ${feats.length ? `<div class="grid-2">${feats.map(({ p, f }) => `<a class="card feature-mini" href="#/projet/${encodeURIComponent(p.id)}">
-        <div class="row between"><b>${esc(f.name)}</b><span class="faint">${esc(p.name)}</span></div>
+    ${feats.length ? `<div class="grid-2">${feats.map(({ p, f }) => `<a class="card feature-mini${f.live ? ' is-live' : ''}" href="#/projet/${encodeURIComponent(p.id)}">
+        <div class="row between"><b>${esc(f.name)} ${f.live ? '<span class="live">en cours</span>' : ''}</b><span class="faint">${esc(p.name)}</span></div>
+        ${f.live && p.workingNow.length ? `<div class="faint">${icon('bot', 'sm')} ${p.workingNow.map(r => esc(agentLabel(r.agent))).join(', ')} au travail</div>` : ''}
         <div class="bar"><i style="width:${f.pct}%"></i></div>
         <div class="row between faint"><span>${f.waiting >= 0 ? `<span style="color:var(--amber)">${icon('circle-pause', 'sm')} ${esc(f.model[f.waiting].label)} : ta validation</span>` : `Étape : ${esc(f.current.label)}`}</span><span>${f.done}/${f.total}</span></div></a>`).join('')}</div>`
       : emptyBox('workflow', 'Aucune feature en cours', `Lance <code>${esc(P)}feature</code> dans un projet : son avancement apparaîtra ici.`)}
@@ -813,8 +1099,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
 
   function viewProjects() {
     return `<h1 class="page-title">Projets</h1><p class="lead">Chaque projet initialisé avec la factory apparaît ici dès que Claude y est ouvert.</p>
-    ${projects.length ? `<div class="grid-2">${projects.map(p => `<a class="card project-card" href="#/projet/${encodeURIComponent(p.id)}">
-      <div class="row between"><h3>${esc(p.name)}</h3>${pill(p.state)}</div>
+    ${projects.length ? `<div class="grid-2">${projects.map(p => `<a class="card project-card${p.active ? ' is-live' : ''}" href="#/projet/${encodeURIComponent(p.id)}">
+      <div class="row between"><h3>${esc(p.name)} ${p.active ? '<span class="live">actif</span>' : ''}</h3>${pill(p.state)}</div>
+      ${p.workingNow.length ? `<div class="faint">${icon('bot', 'sm')} ${p.workingNow.map(r => esc(agentLabel(r.agent))).join(', ')} au travail</div>` : ''}
       <div class="faint mono">${esc(p.path)}</div>
       ${p.current ? `<div><div class="row between faint"><span>${icon('workflow', 'sm')} ${esc(p.current.name)}</span><span>${p.current.done}/${p.current.total}</span></div><div class="bar" style="margin-top:6px"><i style="width:${p.current.pct}%"></i></div></div>` : ''}
       <div class="chips"><span class="chip">${esc(p.architecture || '—')}</span><span class="chip">backend : ${esc(p.backend || '—')}</span>
@@ -842,13 +1129,18 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     }
     else if (f && f.st.includes('active')) callout = `<div class="callout tone-sky">${icon('bot')}<div><b>${esc(f.current.label)} en cours.</b> ${esc(f.current.help || '')}</div></div>`;
     const others = p.features.filter(x => x !== f);
+    const L = f && f.kind === 'Feature' ? lanesOf(p, f) : null;
+    const schemas = L && L.plan ? mermaidBlocks(L.plan.content, 2) : [];
+    const now = p.workingNow.length ? `<div class="now">${icon('bot')} ${p.workingNow.map(r => `<span>${esc(agentLabel(r.agent))} au travail depuis ${dur(r.start, new Date().toISOString())}</span>`).join(' · ')}</div>` : '';
     return `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a>
-    <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${headPill(p)}</div>
+    <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)} ${p.active ? '<span class="live">actif</span>' : ''}</h1>${headPill(p)}</div>
     <p class="lead mono" style="font-size:13px">${esc(p.path)}</p>
     ${projectTabs(p, 'suivi')}
-    <h2 class="section">${icon('workflow')} ${f ? esc(f.kind) + ' : ' + esc(f.name) : 'Process'} ${f ? `<span class="hint">· ${f.done}/${f.total} étapes · <span class="mono">${esc(f.branch)}</span></span>` : ''}</h2>
-    ${f ? `<div class="card process">${stepper(f)}${callout}</div>`
+    <h2 class="section">${icon('workflow')} ${f ? esc(f.kind) + ' : ' + esc(f.name) : 'Process'} ${f && f.live ? '<span class="live">en cours</span>' : ''} ${f ? `<span class="hint">· <span class="mono">${esc(f.branch)}</span></span>` : ''}</h2>
+    ${f ? `<div class="card process">${now}${L ? laneGraph(L) : stepper(f)}${callout}</div>`
       : (callout ? `<div class="card process">${callout}</div>` : emptyBox('workflow', 'Aucune feature en cours', `Le process s'affiche dès que tu travailles sur une branche de feature avec <code>${esc(P)}feature</code>.`))}
+    ${schemas.length ? `<h2 class="section">${icon('layers')} Schémas de la feature <span class="hint">· ${esc(L.plan.name)}</span></h2><div class="card" style="padding:16px">${schemas.map(mmdFigure).join('')}</div>` : ''}
+    ${f ? `<h2 class="section">${icon('users-round')} Qui a fait quoi <span class="hint">· ${esc(f.name)}</span></h2>${runsTable(f.runs || [])}` : ''}
     <div class="two-cols" style="margin-top:14px">
       <div><h2 class="section">${icon('history')} Activité</h2>
         ${(p.events || []).length ? `<div class="card feed">${(p.events || []).filter(e => e.kind !== 'prompt').slice(-25).reverse().map(e => feedItem(e)).join('')}</div>` : emptyBox('history', 'Pas encore d\'activité', '')}</div>
@@ -858,9 +1150,26 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
           <dt>Architecture</dt><dd>${esc(p.architecture || '—')}</dd><dt>Backend</dt><dd class="mono">${esc(p.backend || '—')}</dd>
           <dt>Frontend</dt><dd class="mono">${esc(p.frontend == null ? 'aucun' : p.frontend)}</dd><dt>Kit</dt><dd>${p.kit ? 'v' + esc(p.kit) : '—'}</dd></dl>
         <h2 class="section">${icon('file-text')} Documents</h2>
-        ${(p.docs || []).length ? `<ul class="card list">${p.docs.map((d, k) => `<li><a class="doclink row" style="width:100%" href="#/projet/${encodeURIComponent(p.id)}/doc/${k}">${icon(/claude\.md$/i.test(d.name) ? 'book-open' : 'file-text', 'sm')}<span>${esc(/claude\.md$/i.test(d.name) ? 'Mémoire du projet (CLAUDE.md)' : d.name)}</span><span class="faint" style="margin-left:auto">${d.mtime ? fmt(new Date(d.mtime * 1000).toISOString()) : ''}</span></a></li>`).join('')}</ul>` : emptyBox('file-search', 'Aucun document', 'Les specs et plans de <code>docs/specs</code> et le <code>CLAUDE.md</code> apparaîtront ici.')}
+        ${(p.docs || []).length ? `<ul class="card list">${p.docs.map((d, k) => `<li><a class="doclink row" style="width:100%" href="#/projet/${encodeURIComponent(p.id)}/doc/${k}">${icon(/claude\.md$/i.test(d.name) ? 'book-open' : d.rel === 'docs/architecture/overview.md' ? 'layers' : /^docs\/api\//.test(d.rel) ? 'plug' : 'file-text', 'sm')}<span>${esc(/claude\.md$/i.test(d.name) ? 'Mémoire du projet (CLAUDE.md)' : d.rel === 'docs/architecture/overview.md' ? 'Architecture du projet' : /^docs\/api\//.test(d.rel) ? 'Contrat d\'API : ' + d.name : d.name)}</span><span class="faint" style="margin-left:auto">${d.mtime ? fmt(new Date(d.mtime * 1000).toISOString()) : ''}</span></a></li>`).join('')}</ul>` : emptyBox('file-search', 'Aucun document', 'Les specs et plans de <code>docs/specs</code> et le <code>CLAUDE.md</code> apparaîtront ici.')}
         ${others.length ? `<h2 class="section">${icon('git-branch')} Autres branches</h2><ul class="card list">${others.map(o => `<li>${icon('git-branch', 'sm')}<span>${esc(o.name)}</span><span class="faint" style="margin-left:auto">${o.done}/${o.total} · ${ago(o.lastTs)}</span></li>`).join('')}</ul>` : ''}
       </div></div>`;
+  }
+
+  function viewArchitecture(id) {
+    const p = projects.find(x => x.id === id);
+    if (!p) return `<a class="back" href="#/projets">${icon('arrow-left', 'sm')} Projets</a>${emptyBox('triangle-alert', 'Projet introuvable', '')}`;
+    const d = archDoc(p);
+    const head = `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a>
+      <div class="row between" style="flex-wrap:wrap"><h1 class="page-title">${esc(p.name)}</h1>${headPill(p)}</div>
+      <p class="lead">Le schéma global du projet, proposé par l'architecte et validé par toi ; il suit chaque intégration.</p>${projectTabs(p, 'architecture')}`;
+    if (!d) return head + emptyBox('layers', 'Pas encore de schéma d\'architecture', `Lance <code>${esc(P)}architecture</code> : l'architecte propose un schéma à partir des choix du projet (architecture, modules, intégrations), que tu valides.`);
+    const st = (d.content.slice(0, 300).match(/statut\s*:\s*([^\n]+)/i) || [])[1] || '';
+    const proposed = /propos/i.test(st);
+    const k = (p.docs || []).indexOf(d);
+    return head + `${proposed ? `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Schéma proposé : à valider.</b> Relis-le, puis réponds dans ta session (validé, ou les modifications voulues). Pour une modification plus tard : <code>${esc(P)}architecture &lt;modification&gt;</code>.</div></div>` : ''}
+      <div class="doc-actions"><a class="btn" href="#/projet/${encodeURIComponent(p.id)}/doc/${k}">${icon('printer', 'sm')} Version imprimable / PDF</a>
+        <a class="btn" href="${esc(d.url)}" target="_blank" rel="noopener">${icon('external-link', 'sm')} Ouvrir le fichier</a>${st ? `<span class="pill tone-${proposed ? 'amber' : 'emerald'}">${icon(proposed ? 'circle-pause' : 'check', 'sm')}${esc(st.replace(/[*_`]/g, '').trim())}</span>` : ''}</div>
+      <article class="card md">${renderMd(d.content.replace(/^>\s*statut\s*:[^\n]*\n/i, '')).html}</article>`;
   }
 
   function viewDoc(id, k) {
@@ -873,6 +1182,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <div class="doc-actions"><button type="button" class="btn" onclick="window.print()">${icon('printer', 'sm')} Imprimer / PDF</button>
         <a class="btn" href="${esc(d.url)}" target="_blank" rel="noopener">${icon('external-link', 'sm')} Ouvrir le fichier</a></div>
       ${d.truncated ? `<div class="callout tone-amber">${icon('triangle-alert')}<div>Document tronqué à 200 Ko dans cette page : ouvre le fichier pour le lire en entier.</div></div>` : ''}
+      <div class="print-only print-head"><div class="t">${esc(/claude\.md$/i.test(d.name) ? 'Mémoire du projet' : d.name.replace(/\.md$/, ''))}</div>
+        <div class="m">${esc(p.name)} · ${esc(d.rel)} · modifié ${d.mtime ? fmt(new Date(d.mtime * 1000).toISOString()) : '—'} · imprimé le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
+      ${r.toc.length > 3 ? `<div class="print-only print-toc"><b>Sommaire</b>${r.toc.filter(t => t.lvl > 1 || r.toc.filter(x => x.lvl === 1).length > 1).map(t => `<div class="h${t.lvl}">${esc(t.txt)}</div>`).join('')}</div>` : ''}
       <div class="doc-view"><article class="card md">${r.html || '<p class="faint">Document vide.</p>'}</article>
         ${r.toc.length > 2 ? `<nav class="doc-toc">${r.toc.map(t => `<a href="#" data-anchor="${t.id}" class="h${t.lvl}">${esc(t.txt)}</a>`).join('')}</nav>` : ''}</div>`;
   }
@@ -896,7 +1208,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <a href="#/docs" data-anchor="d-agents">Agents</a><a href="#/docs" data-anchor="d-gardefous">Garde-fous</a>
       <a href="#/docs" data-anchor="d-fichiers">Fichiers du projet</a><a href="#/docs" data-anchor="d-notifs">Notifications</a>
       <a href="#/docs" data-anchor="d-repondre">Répondre à une validation</a>
-      <a href="#/docs" data-anchor="d-design">Design des écrans</a><a href="#/docs" data-anchor="d-front">Backend et frontend séparés</a>
+      <a href="#/docs" data-anchor="d-design">Design des écrans</a><a href="#/docs" data-anchor="d-schemas">Schémas et historique</a><a href="#/docs" data-anchor="d-front">Backend et frontend séparés</a>
       <a href="#/docs" data-anchor="d-depannage">Dépannage</a></nav>
     <div>
       <section id="d-principe" class="card block"><h3>Le principe</h3>
@@ -980,6 +1292,17 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         </ol>
         <p style="margin-top:12px">Avant d'écrire un écran, le développeur frontend vérifie dans l'ordre : l'écran existe déjà (il ne fait que brancher l'API) ;
         un design validé existe (il l'implémente fidèlement) ; tu as choisi « sans design » (il suit le design system et les écrans existants) ; sinon il s'arrête et te demande.</p></section>
+      <section id="d-schemas" class="card block"><h3>Schémas, parcours et historique</h3>
+        <ol class="steps-num">
+          <li><span><b>Architecture du projet</b> : <code>${esc(P)}architecture</code> — l'architecte propose un schéma global (Mermaid) à partir de tes choix ;
+            tu le valides dans l'onglet <b>Architecture</b>. Il te propose une mise à jour après chaque <code>add-integration</code>, <code>add-mcp-server</code>
+            ou <code>add-frontend</code> ; <code>${esc(P)}architecture &lt;modification&gt;</code> pour en demander une.</span></li>
+          <li><span><b>Schémas de chaque feature</b> : le plan contient un schéma des composants et une séquence du cas principal, affichés sur la page du projet et dans le plan.</span></li>
+          <li><span><b>Parcours en graphe</b> : un tronc commun (spec, plan), deux voies — backend et frontend — qui se rejoignent à l'intégration, quel que soit l'ordre choisi.</span></li>
+          <li><span><b>Qui a fait quoi</b> : chaque agent, sa durée, les fichiers modifiés (chemins seulement) et sa ligne de bilan ; aucun autre texte des agents n'est gardé.</span></li>
+          <li><span><b>Documents</b> : rendu soigné (tableaux, code, schémas) et <b>Imprimer / PDF</b> avec en-tête, sommaire et numéros de page.</span></li>
+        </ol>
+        <p style="margin-top:12px" class="faint">Les schémas sont dessinés par Mermaid, téléchargé une seule fois dans <code>~/.top-factory/vendor/</code> (empreinte vérifiée), puis utilisé hors ligne. Sans lui, un schéma s'affiche en texte.</p></section>
       <section id="d-front" class="card block"><h3>Backend et frontend séparés</h3>
         <p>Pour tester l'API pour de vrai avant l'interface, ou pour une équipe frontend et une équipe backend qui avancent chacune de leur côté :</p>
         <ol class="steps-num">
@@ -1010,7 +1333,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     let html, active;
     const md = h.match(/^#\/projet\/([^/]+)\/doc\/(\d+)$/);
     const dz = h.match(/^#\/projet\/([^/]+)\/design(?:\/(system|\d+))?$/);
+    const ar = h.match(/^#\/projet\/([^/]+)\/architecture$/);
     if (md) { html = viewDoc(decodeURIComponent(md[1]), +md[2]); active = 'projets'; }
+    else if (ar) { html = viewArchitecture(decodeURIComponent(ar[1])); active = 'projets'; }
     else if (dz) { html = dz[2] != null ? viewScreen(decodeURIComponent(dz[1]), dz[2]) : viewDesign(decodeURIComponent(dz[1])); active = 'projets'; }
     else if (h.startsWith('#/projet/')) { html = viewProject(decodeURIComponent(h.slice(9))); active = 'projets'; }
     else if (h.startsWith('#/projets')) { html = viewProjects(); active = 'projets'; }
@@ -1026,8 +1351,39 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     document.querySelectorAll('.doc-toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.querySelectorAll('.toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.title = (todo.length ? `(${todo.length}) ` : '') + 'Top Factory';
+    drawMermaid();
     if (typeof drawAuto === 'function' && document.getElementById('auto')) try { drawAuto(); } catch (e) {}
   }
+  // ---------- Schémas Mermaid : afficheur local (~/.top-factory/vendor), chargé seulement s'il y a un schéma ----------
+  let mmdLoading = null, mmdSeq = 0;
+  const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  function loadMermaid() {
+    if (window.mermaid) return Promise.resolve(window.mermaid);
+    if (!D.mermaid) return Promise.reject(new Error('absent'));
+    return mmdLoading || (mmdLoading = new Promise((ok, ko) => {
+      const sc = document.createElement('script'); sc.src = D.mermaid;
+      sc.onload = () => window.mermaid ? ok(window.mermaid) : ko(new Error('chargement'));
+      sc.onerror = () => ko(new Error('chargement')); document.head.appendChild(sc);
+    }));
+  }
+  function drawMermaid() {
+    const nodes = [...document.querySelectorAll('pre.mermaid:not([data-processed])')];
+    if (!nodes.length) return;
+    const note = txt => nodes.forEach(n => { if (!n.parentNode.querySelector('.mmd-note')) n.insertAdjacentHTML('afterend', `<span class="mmd-note">${txt}</span>`); });
+    loadMermaid().then(m => {
+      m.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark() ? 'dark' : 'default', fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        flowchart: { useMaxWidth: false }, sequence: { useMaxWidth: false }, er: { useMaxWidth: false }, class: { useMaxWidth: false }, state: { useMaxWidth: false } });
+      nodes.forEach(n => { n.id = n.id || 'mmd-' + (++mmdSeq); });
+      return m.run({ nodes, suppressErrors: true });
+    }).then(() => nodes.forEach(n => { if (!n.querySelector('svg')) { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; note('Schéma non affiché : sa syntaxe Mermaid est invalide.'); } }))
+      .catch(() => note(`Schéma montré en texte : l'afficheur s'installe tout seul à la prochaine actualisation si Internet est disponible (ou lance <code>${esc(P)}dashboard</code>).`));
+  }
+  function redrawMermaid() {
+    document.querySelectorAll('pre.mermaid[data-processed]').forEach(n => { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; });
+    drawMermaid();
+  }
+
   let auto = true;
   try { auto = sessionStorage.getItem('tf-auto') !== 'off'; } catch (e) {}
   function drawAuto() {
@@ -1055,7 +1411,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       return;
     }
     const b = ev.target.closest('[data-theme-choice]'); if (!b) return;
-    theme = b.dataset.themeChoice; try { localStorage.setItem('tf-theme', theme); } catch (e) {} drawTheme();
+    theme = b.dataset.themeChoice; try { localStorage.setItem('tf-theme', theme); } catch (e) {} drawTheme(); redrawMermaid();
   });
   drawTheme();
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
@@ -1065,7 +1421,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     drawAuto();
     const hh = location.hash || '';
     const typing = (document.activeElement && document.activeElement.tagName === 'TEXTAREA') || !!document.querySelector('.reply');
-    if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\/|\/design(\/|$)/.test(hh)) return;
+    if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\/|\/design(\/|$)|\/architecture$/.test(hh)) return;
     try { sessionStorage.setItem('tf-scroll', String(window.scrollY)); } catch (e) {}
     location.reload();
   }, 15000);

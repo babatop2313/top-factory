@@ -66,6 +66,7 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
    1. relancer Claude (`/exit`, puis `claude`) : le début de session doit annoncer `<frontend> = <dossier>` ;
    2. lancer le backend, puis `npx ng serve` dans `<dossier>` et ouvrir http://localhost:4200 ;
    3. compléter `CLAUDE.md` (section Frontend : version, commandes `ng serve`, `ng test`, `ng build`) ;
+   3 bis. schéma d'architecture : `/architecture` pour l'ajouter (ou le créer s'il n'existe pas) ;
    4. commiter dans une branche (ex. `chore/add-frontend`) : le dossier du frontend (sans `node_modules`, déjà ignoré
       par le `.gitignore` généré) — `.claude/factory.json` a été modifié par le script : ajoute-le aussi.
 

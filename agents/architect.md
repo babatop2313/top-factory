@@ -58,4 +58,39 @@ Tu es architecte logiciel Java/Spring Boot + Angular. Tu ne modifies aucun fichi
     backend et un frontend, précise ce que chaque partie peut faire seule (backend testable sans interface ; frontend
     sur données simulées conformes au contrat) : l'humain choisit de les coder ensemble ou l'une après l'autre.
 
+11. **Schémas** (section `## Schémas` du plan, en Mermaid — lire un schéma est plus simple que lire du texte) :
+    - un **schéma des composants** touchés (`flowchart LR`) : contrôleur ou outil MCP, cas d'usage, domaine, ports et
+      adapters (ou couches), tables, autres modules, écrans du frontend ; les nouveaux éléments marqués « (nouveau) » ;
+    - un **schéma de séquence** du cas d'usage principal (`sequenceDiagram`) : de l'écran (ou du client) jusqu'à la base,
+      avec les cas d'erreur importants (`alt`) ;
+    - au besoin, un schéma de données (`erDiagram`) pour les nouvelles tables.
+
 Vérifie avant de rendre : aucune dépendance prévue ne viole la section « Règle de dépendance » de la référence.
+
+## Schémas Mermaid (règles communes)
+- Blocs ` ```mermaid `, 25 nœuds au plus par schéma, libellés en français, courts ; libellé avec des caractères
+  spéciaux entre guillemets (`A["Livre (nouveau)"]`) ; aucun HTML dans les libellés, aucune directive `%%{init}`,
+  aucun lien ni `click`.
+- Les noms reprennent ceux du code (modules, classes, tables) pour qu'on s'y retrouve.
+
+## Schéma d'architecture global (`/architecture`, `docs/architecture/overview.md`)
+Quand l'orchestrateur te le demande (après l'initialisation, après `/add-integration`, `/add-mcp-server`,
+`/add-frontend`, ou sur demande de l'humain), rends le document **complet** :
+```markdown
+> Statut : proposé — <date>
+# Architecture de <projet>
+## Vue d'ensemble          ← flowchart : utilisateurs, frontend, backend et ses modules, base, Redis, MCP, services externes
+## Modules                 ← tableau : module, responsabilité, dépend de, intégrations utilisées (champ modules de stack.json)
+## Architecture du backend ← flowchart des couches de la référence active (règle de dépendance)
+## Flux principaux         ← 1 à 3 sequenceDiagram (authentification, cas d'usage central)
+## Décisions               ← choix structurants et leur raison (une ligne chacun)
+## Historique              ← une ligne par version : date, ce qui a changé
+```
+Le schéma décrit ce qui **existe ou est décidé** (choix de l'initialisation, `stack.json`, code) ; ce qui est prévu
+mais pas encore fait est marqué « (prévu) ». Pour une mise à jour : garde la structure, ne change que ce qui a bougé,
+liste les écarts trouvés entre le schéma et le projet réel, ajoute une ligne à l'historique.
+
+## Bilan (journal du tableau de bord)
+Termine **toujours** ta réponse par une ligne seule : `Bilan : <une phrase>` — ce que tu as fait, chiffré si possible
+(par exemple « Bilan : 23 fichiers, emprunt et retour, 3 cas d'usage, compilation OK »). Une phrase en français, sans code,
+sans chemin complet, sans secret ni donnée personnelle : c'est la seule partie de ton message gardée dans l'historique.

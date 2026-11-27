@@ -127,6 +127,7 @@
 | `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
 | `/feature <besoin>` | Point de départ vérifié → spec → plan (et ordre du code) → design au choix → code, tests, revue par partie |
 | `/feature --resume <slug> [--back \| --front]` | Reprend la partie restante d'une feature (spec, plan et contrat réutilisés) |
+| `/architecture [modification]` | Schéma d'architecture global (Mermaid) proposé par l'architecte, mis à jour après chaque intégration, visible dans le tableau de bord |
 | `/dashboard [prune\|notifications]` | Ouvre le tableau de bord de tous les projets ; réglages des notifications |
 | `/design-project` | Design en début de projet : design system et tout ou partie des écrans, avant les features |
 | `/design-system`, `/design-screen <écran>`, `/design-improve <écran> <demande>` | Design des écrans dans `docs/design/` (factory, Claude Design ou Figma), toujours validé par l'humain |
