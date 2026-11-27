@@ -92,12 +92,26 @@ Agent `designer`, `docs/design/`, commandes design, contrat d'API, données simu
 Design facultatif (recommandation, choix de l'humain), outil et lien de design dans `stack.json`, `/design-project`,
 parties backend et frontend codées ensemble ou l'une après l'autre (`/feature --resume`), autorisations lisibles.
 
-## v4.6 — Plusieurs backends dans un même dépôt
+## v4.6 — Sécurité et fiabilité ✅ (livrée)
+Aucun `.env` commité (hooks), socle des secrets (`.env` lu par Spring, tests modèles), `/add-ci`, configuration
+illisible signalée, commit sûr, commandes et procédures de test fiables sous Windows.
+
+## v4.7 — Lisibilité : tableau de bord et schémas
+Rendu Markdown et Mermaid (Mermaid téléchargé une fois dans `~/.top-factory/`), PDF soigné ; projets et feature en
+cours mis en avant ; historique « quel agent a fait quoi » (ligne « Bilan : » de chaque agent) ; workflow en graphe
+(voies backend et frontend qui se rejoignent à l'intégration) ; schéma d'architecture global proposé par l'architecte
+après l'initialisation, mis à jour à chaque intégration, et un schéma par feature.
+
+## v4.8 — Conventions et qualité du frontend
+`skipErrorToast`, accessibilité (focus, rôles), données simulées cohérentes entre features, vérification dans un vrai
+navigateur, compte des dépendances par test d'architecture, reprise d'une partie non fusionnée.
+
+## v4.9 — Plusieurs backends dans un même dépôt
 Aujourd'hui : un seul backend par projet. Besoin exprimé : plusieurs projets backend (microservices, multi-modules
 indépendants) pilotés par la même factory. À cadrer : une architecture par backend ou commune, ArchitectureTest par
 backend, `<backend>` désigné par tâche, hooks qui compilent le bon module.
 
-## v4.7 — Noyau neutre (préparer le multi-IA)
+## v4.10 — Noyau neutre (préparer le multi-IA)
 Appliquer l'architecture hexagonale à la factory elle-même : un **noyau neutre** et des **adaptateurs par outil**.
 ```
 core/          factory.json, stack.json, références (architecture, conventions, intégrations),
@@ -121,11 +135,11 @@ adapters/
 | Sous-agents | moyenne : notions très différentes |
 | Hooks | faible : remplacés par le hook Git et la CI pour ce qui est obligatoire |
 
-## v4.8 — `factory-mcp`, la factory comme serveur MCP
+## v4.11 — `factory-mcp`, la factory comme serveur MCP
 Serveur en **Java / Spring AI, transport stdio**, utilisable par tous les clients : `get_architecture`,
 `get_reference_section`, `check_architecture(fichier)` (applique les `rules.conf`), `list_integrations`, `list_specs`…
 Dans Claude Code, il ferait doublon avec les skills ; il prend tout son sens pour Copilot et Gemini.
 
-## v4.9 et v4.10 — Copilot, puis Gemini CLI
+## v4.12 et v4.13 — Copilot, puis Gemini CLI
 Un adaptateur par outil, généré depuis le noyau, **validé sur Bibliothèque** avec les mêmes scénarios que pour Claude.
 Objectif réaliste : les mêmes règles et les mêmes garde-fous partout, pas une expérience identique dans chaque outil.

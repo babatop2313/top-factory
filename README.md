@@ -37,7 +37,7 @@ Depuis la v4, le kit est un **plugin Claude Code** (`top-factory`), distribué p
  Garde-fous
    ├─ session-start.sh      : injecte le résumé de l'architecture active à chaque session
    ├─ guard-architecture.sh : vérifie les imports à chaque écriture, selon rules.conf de la référence
-   ├─ guard-files / guard-bash : verrou de factory.json, secrets, migrations, git (push, fusion)
+   ├─ guard-files / guard-bash : verrou de factory.json, secrets (.env jamais lus ni commités), migrations, git (push, fusion, ajout en bloc)
    ├─ guard-mcp-sql.sh      : lecture seule pour le serveur MCP PostgreSQL
    └─ ArchitectureTest      : règles ArchUnit de l'architecture, sur tout le code
 ```
@@ -69,7 +69,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude-plugin/plugin.json` | Manifeste du plugin `top-factory` (nom, **version**) |
 | `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/integrate`, `/design-project`, `/design-system`, `/design-screen`, `/design-improve`, `/design-link`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/add-ci`, `/integrate`, `/design-project`, `/design-system`, `/design-screen`, `/design-improve`, `/design-link`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
 | `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids ; front-ui, front-forms) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
@@ -201,6 +201,18 @@ L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dan
 | stockage-objet (S3 / MinIO) | `sortant-fichiers` | non testée |
 | rabbitmq | `entrant-messagerie`, `sortant-messagerie` | non testée |
 | kafka | `entrant-messagerie`, `sortant-messagerie` | non testée |
+
+## Secrets, commits et CI
+- **`.env` jamais versionné** : `.gitignore` (`.env*`, `!.env.example`) vérifié à l'installation ; les hooks refusent
+  `git add .env`, un commit qui contient un `.env`, et une modification de `.gitignore` qui ré-inclurait `.env`.
+- **Socle Spring** : `.env` lu au démarrage par `spring.config.import` (format `.properties`, un seul fichier à la
+  racine), aucune valeur par défaut pour un secret, démarrage refusé s'il manque. `/init-architecture` installe deux
+  tests modèles : `ApplicationYamlSecretsTest` et `RepositorySecretsHygieneTest`.
+- **Commit sûr** : fichiers ajoutés un par un (`git add -A`, `git add .`, `git commit -a` sont refusés), liste montrée
+  à l'humain avant chaque commit.
+- **`/top-factory:add-ci`** : CI GitHub Actions ou GitLab CI qui lance les tests du backend et du frontend sur chaque
+  PR/MR, sans aucun vrai secret (valeurs de test générées) ; la commande explique comment la rendre obligatoire.
+- Au démarrage, un `settings.json` ou `stack.json` illisible est signalé (Claude Code ignorerait ses permissions).
 
 ## Tableau de bord et notifications
 Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les hooks de Claude Code (`SessionStart`,

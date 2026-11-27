@@ -24,7 +24,15 @@ Premier module : $ARGUMENTS
    Garde la première ligne `// architecture: <architecture>` telle quelle.
    Crée `<backend>/src/test/resources/archunit.properties` contenant `archRule.failOnEmptyShould=false`
    (sinon les règles échouent tant que les packages sont vides).
+   **Secrets** (skill `conventions`, socle, section Configuration) : copie aussi, s'ils sont absents,
+   `<kit>/skills/conventions/references/socle/tests/ApplicationYamlSecretsTest.java` et `RepositorySecretsHygieneTest.java`
+   vers `<backend>/src/test/java/<basePackage en chemin>/config/` (même remplacement de `__BASE_PACKAGE__`) ; ajoute à
+   `application.yml` l'import optionnel de `.env` s'il manque, et crée `.env.example` à la racine (toutes les variables
+   de `application.yml` sans valeur par défaut, en `NOM=`) s'il est absent.
 6. Exécute les étapes de `<kit>/skills/architecture/references/<architecture>/scaffold.md` pour le module `$ARGUMENTS`.
-7. Lance `./mvnw -q test -Dtest=ArchitectureTest` (depuis `<backend>`) : il doit passer.
+7. Lance `./mvnw -q test -Dtest='ArchitectureTest,ApplicationYamlSecretsTest,RepositorySecretsHygieneTest'` (depuis
+   `<backend>`) : ils doivent passer. Un échec des tests de secrets se corrige dans la configuration (valeur par défaut
+   d'un secret à retirer, `.gitignore`, `.env.example`) ; si un `.env` est suivi par Git, arrête-toi et propose-moi
+   `git rm --cached <fichier>` (je le lance moi-même).
 
 Ne crée aucune classe métier. Termine par : l'architecture appliquée, les fichiers créés, le résultat d'`ArchitectureTest`.

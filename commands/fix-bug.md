@@ -15,7 +15,8 @@ Bug signalé : $ARGUMENTS
    rapide.
 6. **Verdict** : présente-moi le verdict (bloquant, majeur, mineur, points restants) et les résultats des tests.
    **⏸ ARRÊT : attends ma décision avant tout commit.**
-7. **Clôture** (après mon accord) : commit `fix(<module>): <description>` et résumé : cause, correction, test ajouté.
+7. **Clôture** (après mon accord) : fichiers ajoutés un par un, jamais de `.env`, liste des fichiers indexés montrée
+   (règle « Commit sûr »), commit `fix(<module>): <description>` et résumé : cause, correction, test ajouté.
    Ne pousse pas sans mon accord.
 
 En déléguant à un agent, indique-lui le chemin de `<kit>` (annoncé au début de la session) et celui de la référence

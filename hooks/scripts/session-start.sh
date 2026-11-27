@@ -45,6 +45,18 @@ fi
 
 base=$(jq -r '.baseBranch // "develop"' "$cfg" 2>/dev/null | tr -d '\r')
 echo "=== TOP FACTORY ${version:+v$version }— architecture du projet : $arch (verrouillée dans .claude/factory.json) ==="
+# Fichiers de configuration illisibles : Claude Code ignore un settings.json invalide, et avec lui les permissions du
+# kit (dont l'interdiction de lire les .env) ; les hooks continuent de protéger.
+for cf in .claude/settings.json .claude/settings.local.json .claude/stack.json; do
+  if [ -f "$root/$cf" ] && ! tr -d '\r' < "$root/$cf" | jq empty >/dev/null 2>&1; then
+    echo "⚠ $cf n'est pas un JSON valide (début : « $(head -c 12 "$root/$cf" | tr -d '\r\n' | tr -c '[:print:]' '?') ») : Claude Code l'ignore."
+    case "$cf" in
+      *settings.json) echo "  Les permissions du kit ne s'appliquent plus. Signale-le à l'humain : git checkout -- $cf (s'il est versionné) ou correction à la main." ;;
+      *settings.local.json) echo "  Ses autorisations locales ne s'appliquent plus. Signale-le à l'humain (fichier personnel, non versionné)." ;;
+      *) echo "  Profil, conventions et intégrations du projet sont inconnus. Signale-le à l'humain avant toute tâche." ;;
+    esac
+  fi
+done
 if [ "$mode" = "plugin" ]; then
   echo "Kit installé comme plugin Claude Code. Dossier du kit (noté <kit> dans les règles, agents et commandes) :"
 else
