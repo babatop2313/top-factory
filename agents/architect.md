@@ -79,13 +79,56 @@ Quand l'orchestrateur te le demande (après l'initialisation, après `/add-integ
 ```markdown
 > Statut : proposé — <date>
 # Architecture de <projet>
-## Vue d'ensemble          ← flowchart : utilisateurs, frontend, backend et ses modules, base, Redis, MCP, services externes
+## Vue d'ensemble          ← schéma simple et général, modèle ci-dessous (pas de classes ni de ports ici)
 ## Modules                 ← tableau : module, responsabilité, dépend de, intégrations utilisées (champ modules de stack.json)
 ## Architecture du backend ← flowchart des couches de la référence active (règle de dépendance)
 ## Flux principaux         ← 1 à 3 sequenceDiagram (authentification, cas d'usage central)
 ## Décisions               ← choix structurants et leur raison (une ligne chacun)
 ## Historique              ← une ligne par version : date, ce qui a changé
 ```
+**Vue d'ensemble : simple et générale**, lisible par quelqu'un qui ne connaît pas le code — des zones de gauche à
+droite (Utilisateurs → Applicatif → Backend → Données), les services externes à part, une flèche entre zones seulement,
+le mécanisme de sécurité sur la flèche Applicatif ↔ Backend. 20 éléments au plus, un emoji parlant devant chaque
+élément, libellés en français sans jargon. Les modules, couches et flux détaillés vont dans les sections suivantes.
+Modèle à suivre (garder `direction LR` **dans** chaque zone : c'est ce qui empile les éléments verticalement) :
+```mermaid
+flowchart LR
+  subgraph U["Utilisateurs"]
+    direction LR
+    u1["💻 Poste de travail"]
+    u2["📱 Mobile"]
+  end
+  subgraph A["Applicatif — Angular"]
+    direction LR
+    a1["🖥️ Interface des agents"]
+    a2["🌐 Portail externe"]
+  end
+  subgraph B["Backend — Spring Boot"]
+    direction LR
+    b0["🔀 API REST / Gateway"]
+    b1["⚙️ Module ou service 1"]
+    b2["⚙️ Module ou service 2"]
+  end
+  subgraph D["Données"]
+    direction LR
+    d1[("🐘 PostgreSQL")]
+    d2[("⚡ Redis — cache")]
+    d3["🗂️ Serveur de fichiers"]
+  end
+  subgraph X["Services externes"]
+    direction LR
+    x1["✉️ Serveur SMTP"]
+    x2["💬 SMS"]
+    x3["🤖 Assistant IA (MCP)"]
+  end
+  U <--> A
+  A <-->|"JWT · MFA"| B
+  B <--> D
+  B <--> X
+```
+Ne garder que ce qui existe ou est décidé pour le projet (pas de zone vide ; une zone « Services externes » seulement
+s'il y en a), avec les vrais noms (modules du backend, applications du frontend, technologies de `stack.json`).
+
 Le schéma décrit ce qui **existe ou est décidé** (choix de l'initialisation, `stack.json`, code) ; ce qui est prévu
 mais pas encore fait est marqué « (prévu) ». Pour une mise à jour : garde la structure, ne change que ce qui a bougé,
 liste les écarts trouvés entre le schéma et le projet réel, ajoute une ligne à l'historique.

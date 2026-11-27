@@ -41,6 +41,15 @@ fetch_mermaid() {
     fi
     rm -f "$tmp"
   done
+  # Windows : dernier essai par PowerShell, qui passe par le proxy du système (et ses identifiants).
+  if command -v powershell.exe >/dev/null 2>&1; then
+    local wtmp="$tmp"; command -v cygpath >/dev/null 2>&1 && wtmp="$(cygpath -w "$tmp")"
+    powershell.exe -NoProfile -NonInteractive -Command "\$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; [Net.WebRequest]::DefaultWebProxy.Credentials=[Net.CredentialCache]::DefaultNetworkCredentials; Invoke-WebRequest -UseBasicParsing -Uri 'https://cdn.jsdelivr.net/npm/mermaid@$MERMAID_VERSION/dist/mermaid.min.js' -OutFile '$wtmp'" >/dev/null 2>&1
+    if [ -f "$tmp" ] && [ "$(sha256_of "$tmp")" = "$MERMAID_SHA256" ]; then
+      mv "$tmp" "$mfile" && echo "Afficheur de schémas installé (par PowerShell) : $mfile" && return 0
+    fi
+    rm -f "$tmp"
+  fi
   echo "Téléchargement de Mermaid impossible (réseau, ou empreinte différente) : schémas affichés en texte." >&2
   return 1
 }
@@ -404,7 +413,7 @@ cat <<'TF_HTML_END'
   .lanes text { font: 600 14px ui-sans-serif, system-ui, sans-serif; fill: var(--text); }
   .lanes text.sub { font-weight: 450; font-size: 12px; fill: var(--text-3); }
   .lanes text.lane { font-weight: 650; font-size: 12.5px; fill: var(--text-2); letter-spacing: .03em; }
-  .mmd svg { max-width: none; height: auto; }
+  .mmd svg { height: auto; }
   .lanes .edge { fill: none; stroke: var(--line); stroke-width: 2; } .lanes .edge.on { stroke: var(--accent); }
   .lanes .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
   .lanes .node.s-done rect { fill: var(--accent-soft); stroke: var(--accent); }
@@ -1372,8 +1381,16 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     if (!nodes.length) return;
     const note = txt => nodes.forEach(n => { if (!n.parentNode.querySelector('.mmd-note')) n.insertAdjacentHTML('afterend', `<span class="mmd-note">${txt}</span>`); });
     loadMermaid().then(m => {
-      m.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark() ? 'dark' : 'default', fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-        flowchart: { useMaxWidth: false }, sequence: { useMaxWidth: false }, er: { useMaxWidth: false }, class: { useMaxWidth: false }, state: { useMaxWidth: false } });
+      // Thème sobre, accordé au tableau de bord : zones neutres, éléments indigo, en clair comme en sombre.
+      const tv = isDark()
+        ? { darkMode: true, background: '#151821', primaryColor: '#1e2140', primaryBorderColor: '#818cf8', primaryTextColor: '#e5e7eb', secondaryColor: '#1f2430', tertiaryColor: '#1a1d27',
+            lineColor: '#94a3b8', textColor: '#e5e7eb', clusterBkg: '#1a1d27', clusterBorder: '#475569', edgeLabelBackground: '#151821', noteBkgColor: '#1f2430', noteTextColor: '#e5e7eb',
+            actorBkg: '#1e2140', actorBorder: '#818cf8', actorTextColor: '#e5e7eb', signalColor: '#cbd5e1', signalTextColor: '#e5e7eb', labelBoxBkgColor: '#1e2140', labelTextColor: '#e5e7eb' }
+        : { primaryColor: '#eef2ff', primaryBorderColor: '#6366f1', primaryTextColor: '#1e1b4b', secondaryColor: '#f1f5f9', tertiaryColor: '#f8fafc',
+            lineColor: '#64748b', clusterBkg: '#f8fafc', clusterBorder: '#94a3b8', edgeLabelBackground: '#ffffff' };
+      m.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', themeVariables: Object.assign({ fontSize: '15px' }, tv), fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        // Largeur : le schéma se réduit pour tenir dans la page, sans jamais dépasser sa taille naturelle.
+        flowchart: { useMaxWidth: true }, sequence: { useMaxWidth: true }, er: { useMaxWidth: true }, class: { useMaxWidth: true }, state: { useMaxWidth: true } });
       nodes.forEach(n => { n.id = n.id || 'mmd-' + (++mmdSeq); });
       return m.run({ nodes, suppressErrors: true });
     }).then(() => nodes.forEach(n => { if (!n.querySelector('svg')) { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; note('Schéma non affiché : sa syntaxe Mermaid est invalide.'); } }))
