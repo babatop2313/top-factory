@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.7.1 — Vue d'ensemble simple et générale
+Mettre à jour le plugin, puis dans chaque projet : `/top-factory:architecture simplifier la vue d'ensemble selon le
+nouveau modèle`.
+
+- **Vue d'ensemble de l'architecture** : un schéma simple, lisible sans connaître le code — zones de gauche à droite
+  (Utilisateurs → Applicatif → Backend → Données), services externes à part, une flèche entre zones, le mécanisme de
+  sécurité sur la flèche Applicatif ↔ Backend, un emoji par élément, 20 éléments au plus. Modèle Mermaid fourni à
+  l'architecte ; le détail (modules, couches, flux) reste dans les sections suivantes.
+- **Schémas accordés au tableau de bord** : thème sobre (zones neutres, éléments indigo) en clair comme en sombre ; un
+  schéma large se réduit pour tenir dans la page, sans jamais dépasser sa taille naturelle.
+- **Téléchargement de l'afficheur derrière un proxy** : dernier essai par PowerShell sous Windows (proxy du système et
+  ses identifiants), toujours avec vérification de l'empreinte.
+
 ## v4.7.0 — Lisibilité : tableau de bord et schémas
 Mettre à jour le plugin, puis `/top-factory:dashboard` (installe l'afficheur de schémas au premier lancement) et, dans
 chaque projet, `/top-factory:architecture` pour obtenir le schéma global.
