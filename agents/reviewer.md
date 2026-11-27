@@ -38,7 +38,12 @@ depuis `<frontend>` : `npx ng build`, `npm run lint`, `npx ng test --watch=false
    **fidélité au design validé** (`docs/design/`, skill `design` ; écran de source `aucun` : cohérence avec le design
    system et les écrans voisins) et statuts à jour ; **aucune donnée simulée dans le
    build de production** (`mockProviders` vide hors configuration `mock`) ; respect du contrat `docs/api/<feature>.md` ;
-   build, lint et tests verts.
+   build, lint et tests verts. **Thème** : mode sombre piloté par la classe `app-dark` (jamais par le seul réglage du
+   système), fond et texte sur des jetons qui suivent le thème, aucune couleur en dur ; **accessibilité** (section du
+   skill `angular-conventions`) : focus après disparition d'un élément, rôles des messages, mouvement réduit, 44 px au
+   toucher, recherche ; **erreurs** affichées une seule fois (`SKIP_ERROR_TOAST`) ; données simulées partagées
+   (`mock-db`). Si Impeccable est installé : `npx impeccable detect <fichiers frontend touchés> --fast`, alertes
+   restantes en MINEUR.
 4. **Conformité** à la spec et au plan (rien d'oublié, rien en trop).
 5. **Sécurité** : `@PreAuthorize` sur chaque endpoint, identité issue du JWT (pas d'IDOR), validation des entrées,
    requêtes natives paramétrées, aucune donnée sensible dans les logs, aucun secret.

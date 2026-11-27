@@ -250,6 +250,13 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
   du projet) et **recommande** ; tu choisis : designer de la factory, design externe (Claude Design ou Figma) ou sans
   design. L'agent `designer` propose le design system, puis une fiche et une maquette par écran dans `docs/design/`
   (`/top-factory:design-system`, `design-screen`, `design-improve`), ou reporte celui de ton outil.
+- **Contrôle qualité du design avec [Impeccable](https://impeccable.style)** (plugin de Paul Bakaus, proposé à
+  l'installation) : avant chaque proposition de design et avant la revue du code, les défauts ordinaires sont corrigés ;
+  un changement **critique** (bibliothèque, design validé, structure d'un écran, mode de thème) arrive en
+  **proposition à comparer** dans l'onglet Design — garder l'actuel ou adopter la proposition. PrimeNG, Bootstrap et
+  les autres choix restent les tiens.
+- **Thème clair et sombre conçus** : bascule Auto / Clair / Sombre, mode sombre piloté par l'application (jamais subi),
+  jetons qui suivent le thème, contraste AA dans les deux.
 - **Outil de design enregistré une fois** : `/top-factory:design-link <url>` écrit l'outil et son lien dans le bloc
   `design` de `.claude/stack.json` (avec ton accord) ; il est annoncé à chaque session et affiché dans l'onglet Design.
   Le projet Claude Design épinglé par `/design-sync` (`.design-sync/config.json`) est seulement lu, pour proposer son lien.

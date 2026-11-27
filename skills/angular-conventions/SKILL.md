@@ -1,6 +1,6 @@
 ---
 name: angular-conventions
-description: Conventions Angular du projet (socle frontend) — structure par feature, composants, services HTTP, authentification JWT, gestion des erreurs, tests, garde-fous. Les options front-ui et front-forms viennent du skill conventions. À charger avant d'écrire, de planifier ou de relire du code frontend.
+description: Conventions Angular du projet (socle frontend) — structure par feature, composants, services HTTP, authentification JWT, thème clair et sombre, gestion des erreurs, accessibilité, données simulées, tests, garde-fous. Les options front-ui et front-forms viennent du skill conventions. À charger avant d'écrire, de planifier ou de relire du code frontend.
 ---
 
 # Conventions Angular (socle frontend)
@@ -81,6 +81,37 @@ export class BookService {
 - Écran de connexion : message d'erreur **générique** (« Identifiant ou mot de passe incorrect »), jamais
   « utilisateur inconnu » ; champ mot de passe masqué, avec bouton pour l'afficher ; aucun identifiant pré-rempli dans le code.
 
+## Thème clair et sombre (obligatoire)
+Le mode sombre **existe et est conçu**, jamais subi : rien ne doit basculer « tout seul » à moitié selon le système.
+- **Choix de l'utilisateur** : `Auto` (suit le système, par défaut), `Clair` ou `Sombre`, dans l'en-tête
+  (`core/layout/theme-toggle`, libellé accessible « Thème : … »). Service `core/theme/theme.service.ts` : `signal` du
+  mode, mémorisé dans `localStorage` (clé `theme`, lecture et écriture dans un `try/catch`, aucune donnée personnelle),
+  écoute de `matchMedia('(prefers-color-scheme: dark)')` en mode `Auto` ; il pose la classe **`app-dark`** sur
+  `document.documentElement` et la propriété CSS `color-scheme` (`light` ou `dark`).
+- **Bibliothèque d'interface** : le mode sombre est **piloté par cette classe**, jamais par le seul réglage du système
+  (option `front-ui`, section de la valeur retenue — PrimeNG : `darkModeSelector: '.app-dark'`).
+- **Styles globaux** (`styles.scss`) et composants : uniquement des **jetons qui suivent le thème** (PrimeNG :
+  `--p-content-background`, `--p-text-color`, `--p-text-muted-color`, `--p-content-border-color`…). Jamais une surface
+  fixe (`--p-surface-0`) pour un fond, jamais une couleur en dur ; une nuance propre au projet se déclare pour les deux
+  modes (`light-dark()` ou variable redéfinie sous `.app-dark`).
+- **Contraste AA dans les deux modes** (4,5:1 pour le texte, 3:1 pour les composants et le focus) ; images et
+  illustrations lisibles sur fond sombre.
+- Pas de flash au chargement : le mode mémorisé est appliqué avant le premier rendu (script en ligne minimal dans
+  `index.html` qui pose `app-dark` d'après `localStorage` et `matchMedia`, ou `APP_INITIALIZER` du service).
+- Tests : le service (mode mémorisé, `Auto` qui suit le système, classe posée) et le composant de bascule.
+
+## Accessibilité (règles vérifiées en revue)
+- **Focus** : après une action qui fait disparaître ou recharger l'élément actif (ligne supprimée, emprunt, livre
+  devenu indisponible, rechargement), le focus va sur un élément logique (ligne suivante, titre de la liste, message
+  de résultat) ; il n'est jamais perdu sur `<body>`. Si le rechargement échoue, ne pas déplacer le focus plus tard.
+- **Messages** : `role="alert"` seulement pour une erreur urgente ; un bandeau d'information (« 1 livre en retard »)
+  est en `role="status"` ou sans rôle — **neutraliser le `role="alert"` que PrimeNG pose par défaut** sur `p-message`.
+- **Mouvement** : sous `prefers-reduced-motion: reduce`, pas d'animation en boucle (reflet de `p-skeleton` coupé, le
+  squelette reste visible), ouvertures de dialogue sans glissement.
+- **Toucher** : action principale d'au moins **44 px** de haut sous 768 px (pas de `size="small"` sur mobile).
+- **Recherche** : `input type="search"` → masquer la croix native (`::-webkit-search-cancel-button`) si un bouton
+  d'effacement existe, ou `type="text"` avec `role="searchbox"` ; l'effacement passe toujours par la même méthode.
+
 ## Données simulées (frontend sans backend)
 Pour développer et tester l'interface avant le backend, sur le contrat `docs/api/<feature>.md` :
 ```
@@ -102,12 +133,21 @@ src/mocks/<feature>/         jeux de données JSON conformes au contrat (répons
   jour après un POST). Un endpoint absent des jeux de données part vers la vraie API.
 - **Le service HTTP de la feature est le même** qu'avec la vraie API : aucune condition « si mock » dans le code métier.
 - Authentification simulée : un utilisateur fictif par rôle, choisi dans les jeux de données ; jamais de vrai secret.
+  En mode `mock`, l'application démarre **déjà connectée** avec le premier utilisateur fictif (`?as=<rôle>` pour en
+  changer, déconnexion possible) : les contrôles visuels (captures, audit Impeccable) passent sans écran de connexion.
+- **Un seul état simulé partagé** (`src/app/core/mock/mock-db.ts`, chargé depuis `src/mocks/`) : les features
+  simulées lisent et modifient les mêmes données (un emprunt simulé baisse le stock du catalogue simulé), jamais deux
+  copies incohérentes.
 - `/integrate <feature>` retire de l'intercepteur les endpoints que le backend expose ; les jeux de données restent
   utilisables par les tests.
 
 ## Erreurs
 - `core/http/error.interceptor.ts` : traduit les erreurs HTTP en notifications (selon `front-ui`) ; lit le `ProblemDetail`
   (`title`, `detail`, erreurs par champ) ; message générique pour un 5xx ou un échec réseau, sans détail technique.
+- **Erreurs que l'écran affiche lui-même** : jeton de contexte `SKIP_ERROR_TOAST` (`core/http/skip-error-toast.ts`,
+  `HttpContextToken<number[]>`) ; le service passe les statuts gérés par l'écran
+  (`context: skipErrorToast(404, 409, 503)`) et l'intercepteur ne notifie pas ceux-là : **jamais deux messages pour la
+  même erreur**. Un statut non listé garde la notification générale ; le 401 reste à l'intercepteur d'authentification.
 - 400 avec erreurs par champ : reportées sur le formulaire (option `front-forms`), pas seulement en notification.
 - 403 : « Vous n'avez pas les droits nécessaires » ; 401 : géré par l'intercepteur d'authentification.
 
@@ -122,6 +162,11 @@ src/mocks/<feature>/         jeux de données JSON conformes au contrat (répons
 ## Vérifications avant de rendre la main
 Depuis `<frontend>` : `npx ng build` (compile les templates), `npm run lint` si le script existe, `npx ng test --watch=false`.
 Le hook vérifie aussi les types (TypeScript) après chaque écriture d'un `.ts`.
+
+## Contrôle qualité visuel
+- Avant la revue, `frontend-dev` vérifie ses écrans dans les deux thèmes ; si Impeccable est installé, il suit la
+  section « Contrôle qualité (Impeccable) » du skill `design` (détecteur, corrections ordinaires, propositions pour le
+  critique). Les captures et audits visuels se font en mode `mock` (connexion simulée).
 
 ## Interdits
 `any` (préférer `unknown` + rétrécissement), URL d'API absolue dans le code, jeton dans `localStorage` (ni dans

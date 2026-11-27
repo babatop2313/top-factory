@@ -34,7 +34,7 @@ début de la session) et le chemin de la référence d'architecture active : un 
      pas de réseau), signale-le et demande-moi si l'on continue.
    Tu ne fais jamais toi-même de `pull`, `stash`, `reset` ou `checkout` d'une autre branche pour « corriger » le point de départ.
    Si tout est bon, crée la branche `feature/<slug>` (`git checkout -b feature/<slug>`).
-   **En reprise** : si la première partie est **déjà fusionnée** dans `origin/<baseBranch>` (son commit en est un
+   **En reprise** (ne décide jamais seul de la branche) : si la première partie est **déjà fusionnée** dans `origin/<baseBranch>` (son commit en est un
    ancêtre : `git merge-base --is-ancestor <commit> origin/<baseBranch>`), mêmes vérifications, puis nouvelle branche
    `feature/<slug>-front` (ou `-back`) depuis `baseBranch` à jour. Si elle **n'est pas encore fusionnée**, dis-le et
    **⏸ ARRÊTE-TOI** : je choisis entre continuer sur `feature/<slug>` ou attendre la fusion.
@@ -72,8 +72,10 @@ début de la session) et le chemin de la référence d'architecture active : un 
    Présente-moi ce constat écran par écran, avec **ta recommandation** (par exemple : « 2 écrans sans design ; je
    recommande de passer par le design pour la liste, nouvel écran central ; le dialogue peut suivre le design system »),
    puis **⏸ ARRÊTE-TOI** : pour les écrans sans design validé, je choisis
-   - **designer de la factory** → agent `designer` (fiche + maquette, statut `proposé`) ; écrans visibles dans
-     `/dashboard`, onglet Design ; **⏸ ARRÊTE-TOI et ATTENDS** ma validation, puis statut `validé` ;
+   - **designer de la factory** → agent `designer` (fiche + maquette, statut `proposé`), puis contrôle qualité Impeccable (skill `design`, « Contrôle qualité (Impeccable) » : corrections ordinaires appliquées,
+     propositions critiques à côté de l'actuel ; s'il n'est pas installé, propose-le une fois) ;
+     écrans visibles dans `/dashboard`, onglet Design ; **⏸ ARRÊTE-TOI et ATTENDS** ma validation (et mon choix pour
+     chaque proposition critique), puis statut `validé` ;
    - **design externe** (Claude Design ou Figma, lien de `stack.json`, sinon `/design-link`) → je dessine dans l'outil ;
      quand je te le dis, agent `designer` pour le reporter dans `docs/design/`, puis ma validation comme ci-dessus ;
    - **sans design** → `frontend-dev` code à partir de la spec, du design system et des écrans existants (source
@@ -88,6 +90,10 @@ début de la session) et le chemin de la référence d'architecture active : un 
         la **vraie API** ; sinon, sur des **données simulées** conformes au contrat (skill `angular-conventions`), et le
         branchement se fera par `/integrate <slug>`. Il met à jour le statut des écrans (`implémenté` ou `intégré`).
         Si la feature a une interface mais que `<frontend>` vaut « aucun », arrête-toi et propose `/add-frontend`.
+      - partie frontend terminée : contrôle qualité Impeccable (skill `design`, « Contrôle qualité (Impeccable) » : corrections ordinaires appliquées,
+        propositions critiques à côté de l'actuel ; s'il n'est pas installé, propose-le une fois) sur
+        les écrans touchés, dans les deux thèmes (mode `mock` pour les captures) ; un changement critique arrête la
+        partie : il devient une proposition de design à comparer avant tout code.
    b. **Tests** → agent `test-writer` avec la spec, le plan et la liste des fichiers produits par cette partie.
       Il écrit **tous** les tests de la partie, couche par couche, selon la section « Tests par couche » de la
       référence, et les exécute. S'il détecte un bug dans le code de production, renvoie-le à l'agent dev concerné,
@@ -95,7 +101,9 @@ début de la session) et le chemin de la référence d'architecture active : un 
    c. **Revue** → agent `reviewer`, sur les changements de la partie. S'il y a des remarques BLOQUANT ou MAJEUR,
       renvoie-les à l'agent dev concerné, puis relance la revue. Maximum 2 boucles ; au-delà, arrête-toi et fais-moi un point.
    d. **Verdict → ⏸ ARRÊT** : présente-moi le verdict de la revue (points bloquants, majeurs, mineurs, suggestions),
-      le nombre de tests et les écarts au plan. **Attends ma décision avant tout commit** : je peux demander des
+      le nombre de tests et les écarts au plan ; pour une partie frontend, le **bilan du contrôle qualité** et une
+      **liste de vérifications à faire dans le navigateur** (parcours principal, erreurs, clavier, mobile vers 390 px,
+      thèmes clair et sombre, rôles). **Attends ma décision avant tout commit** : je peux demander des
       corrections (second passage par les agents concernés, puis revue rapide) ou valider tel quel.
    e. **Commit de la partie**, après mon accord : Avancement mis à jour (partie `terminé — <date>`), fichiers ajoutés
       **un par un** (`git add -- <chemin>`, jamais de `.env`), `git status --short` et liste des fichiers indexés

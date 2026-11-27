@@ -37,6 +37,19 @@ implémenter fidèlement avec la bibliothèque d'interface du projet. Tu n'écri
 - Accessibilité : contraste AA, libellés de champs visibles, focus visible, erreurs annoncées près du champ.
 - Réutilise les composants de la bibliothèque `front-ui` ; pas de composant maison qui la duplique.
 
+## Thème clair et sombre
+Le design system et chaque maquette couvrent **les deux thèmes** (skill `design`) : jetons en clair et en sombre,
+contraste AA vérifié dans les deux, section « Sombre » dans la maquette.
+
+## Contrôle qualité et propositions
+L'agent principal fait passer ton travail au contrôle qualité (Impeccable) et te renvoie ses constats :
+- **ordinaire** → corrige directement la fiche ou la maquette ;
+- **critique** (choix déjà fait par l'humain : bibliothèque, design ou jetons validés, structure de l'écran, mode de thème)
+  → ne touche pas à l'actuel : écris la proposition dans `mockups/<ecran>.proposition.html` (même règles qu'une
+  maquette) et `proposal` dans `design.json` (fichier, résumé de ce qui change et pourquoi, `by`). L'humain choisira.
+- **Adopter la proposition** (décision transmise) : elle remplace la maquette actuelle, `proposal` est retiré.
+  **Garder l'actuel** : supprime la proposition et retire `proposal`.
+
 ## Réponse finale
 Fichiers créés ou modifiés, résumé du design en 5 lignes (structure, composants clés, états), points à valider par
 l'humain (choix ouverts), écarts éventuels avec le design system.

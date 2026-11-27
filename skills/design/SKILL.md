@@ -30,6 +30,7 @@ docs/design/
   design-system.md       couleurs, typographie, espacements, rayons, ombres, composants de base, ton des textes
   screens/<ecran>.md     fiche d'un écran (modèle ci-dessous)
   mockups/<ecran>.html   maquette autonome de l'écran (règles ci-dessous)
+  mockups/<ecran>.proposition.html   proposition critique à comparer (contrôle qualité), tant que l'humain n'a pas choisi
 ```
 Identifiant d'écran : `kebab-case`, préfixé par la feature si utile (`catalog-list`, `catalog-book-form`, `auth-login`).
 
@@ -40,7 +41,8 @@ Identifiant d'écran : `kebab-case`, préfixé par la feature si utile (`catalog
   "screens": [
     { "id": "catalog-list", "title": "Catalogue", "feature": "catalog",
       "status": "validé", "source": "factory", "link": "",
-      "spec": "screens/catalog-list.md", "mockup": "mockups/catalog-list.html", "updated": "2026-11-23" }
+      "spec": "screens/catalog-list.md", "mockup": "mockups/catalog-list.html", "updated": "2026-11-23",
+      "proposal": { "mockup": "mockups/catalog-list.proposition.html", "summary": "Mode sombre conçu : …", "by": "impeccable" } }
   ]
 }
 ```
@@ -51,6 +53,8 @@ Identifiant d'écran : `kebab-case`, préfixé par la feature si utile (`catalog
   (l'humain a choisi de coder l'écran sans design : il reste visible comme tel dans le tableau de bord).
 - `link` (facultatif) : lien **d'un écran précis** (frame Figma, artboard), seulement s'il diffère du lien du projet
   (`stack.json`). Jamais de jeton dans une URL.
+- `proposal` (facultatif) : proposition **critique** en attente du choix de l'humain (contrôle qualité ci-dessous) ;
+  retiré dès qu'il a choisi. Aussi possible sur `designSystem` (`"proposal": { "spec": "design-system.proposition.md", … }`).
 - Écrit uniquement par les commandes design et par `/feature` (statuts) ; toujours JSON valide, trié par `feature` puis `id`.
 
 ## Design system (`design-system.md`)
@@ -61,6 +65,10 @@ Le design system **précise** le thème, il ne le contredit pas :
 - **Typographie** : familles, tailles (échelle), graisses ; **espacements** (échelle 4 px), **rayons**, **ombres**.
 - **Composants de base** et leur usage : boutons (principal, secondaire, danger), champs, tableaux, toasts, dialogues,
   badges d'état ; ce qu'on n'utilise pas.
+- **Thème clair et sombre** (les deux sont conçus) : pour chaque jeton, sa valeur en clair **et** en sombre, et le
+  contraste vérifié dans les deux ; fond et texte de page sur des jetons qui suivent le thème ; bascule Auto / Clair /
+  Sombre dans l'en-tête (skill `angular-conventions`, « Thème clair et sombre »).
+- **Accessibilité de base** : focus visible, action principale de 44 px au toucher sur mobile, mouvement réduit.
 - **Ton** : français, vouvoiement ou tutoiement (choisi une fois), libellés d'action à l'infinitif, messages d'erreur
   qui disent quoi faire.
 
@@ -80,7 +88,8 @@ Le design system **précise** le thème, il ne le contredit pas :
   distante, ni image distante) — elle s'affiche dans le tableau de bord en mode isolé, sans JavaScript.
 - Reproduit l'aspect de la bibliothèque `front-ui` avec les jetons du design system (variables CSS) : c'est une image
   fidèle, pas une implémentation ; aucune donnée réelle, des données fictives réalistes en français.
-- Montre l'état principal et, en dessous, les états vide et erreur (sections titrées).
+- Montre l'état principal et, en dessous, les états vide et erreur (sections titrées), puis l'état principal **en
+  mode sombre** (section « Sombre » : même structure, variables du thème sombre redéfinies sur son conteneur).
 - Largeur desktop ; une section « mobile » (≈ 390 px) si la mise en page change.
 
 ## Sources externes
@@ -95,6 +104,33 @@ Le design system **précise** le thème, il ne le contredit pas :
 - **Figma** : lien du fichier dans `stack.json`, d'une frame dans `design.json`. Si le serveur MCP Figma est branché (il
   est en lecture), s'en servir pour lire la frame (mise en page, couleurs, textes) ; sinon, travailler à partir des
   exports fournis par l'humain. Ne jamais inventer ce que la maquette ne montre pas : poser la question.
+
+## Contrôle qualité (Impeccable)
+[Impeccable](https://impeccable.style) (plugin Claude Code de Paul Bakaus, licence Apache 2.0) vérifie et corrige la
+qualité visuelle : typographie, couleurs et contraste, espacements, mouvement, interactions, adaptation, textes.
+- **Installé ?** Le skill `impeccable` (commande `/impeccable`) est disponible dans la session. **Sinon**, propose-le
+  une fois à l'humain, sans l'imposer, avec les commandes :
+  `/plugin marketplace add pbakaus/impeccable` puis `/plugin install impeccable@impeccable` ; le process continue sans
+  lui (ligne « Contrôle qualité : Impeccable non installé » dans le bilan).
+- **Contexte à lui donner** : la référence de design est `docs/design/design-system.md` et les fiches de
+  `docs/design/screens/` (pas de `DESIGN.md` séparé) ; la bibliothèque `front-ui` et ses options sont des choix de
+  l'humain.
+- **Quand** : par l'agent principal, **avant de présenter** un design (après `designer`) et **avant la revue** des écrans
+  codés (après `frontend-dev`) : `/impeccable critique` ou `/impeccable audit` sur la maquette ou l'écran (en mode `mock`
+  pour un écran codé), et `npx impeccable detect <fichiers> --fast` (détecteur sans IA).
+- **Il peut tout toucher, en deux niveaux** :
+  - **ordinaire** (contraste, espacements, typographie, états oubliés, textes, mouvement réduit, taille au toucher…) :
+    corrigé directement (par `designer` dans la maquette, par `frontend-dev` dans le code), puis listé ;
+  - **critique** : tout ce qui touche un **choix déjà fait** — la bibliothèque ou la grille (`front-ui`), un design
+    **validé** ou les jetons du design system validé, la **structure** d'un écran (mise en page, parcours, action ou
+    état ajouté ou retiré), un mode de thème (par exemple concevoir ou refondre le mode sombre). Jamais appliqué en
+    silence : `designer` écrit la proposition **à côté** de l'actuel (`mockups/<ecran>.proposition.html`, résumé et
+    raison dans `design.json` → `proposal`), l'actuel reste intact, et l'humain compare dans le tableau de bord (onglet
+    Design) : **« Garder l'actuel »** (proposition supprimée) ou **« Adopter la proposition »** (elle remplace
+    l'actuelle ; l'ancienne reste dans l'historique Git). Dans le code, un changement critique repasse toujours par une
+    proposition de design ; le code n'implémente que la version choisie.
+- **Bilan présenté à l'humain** : corrigé (ordinaire), proposé (critique, à comparer), écarté (avec la raison : contraire
+  à un choix de l'humain, faux positif). Les alertes restantes du détecteur sont mineures dans la revue, jamais bloquantes.
 
 ## Design en début de projet
 `/design-project` prépare tout ou partie du design avant les features : design system, liste d'écrans prévus (registre

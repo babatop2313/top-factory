@@ -46,8 +46,12 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
 6. **Structure de base** (socle `angular-conventions`, sans écran métier) :
    - `src/app/core/http/problem-detail.ts` (modèle `ProblemDetail`) et `src/app/core/http/error.interceptor.ts`
      (notifications selon `front-ui`), enregistré dans `app.config.ts` avec `provideHttpClient(withInterceptors([...]))` ;
-   - `src/app/core/layout/` : un en-tête minimal (nom de l'application), affiché par le composant racine avec
-     `<router-outlet />` et, selon `front-ui`, le conteneur de notifications ;
+   - `src/app/core/layout/` : un en-tête minimal (nom de l'application, **bascule de thème Auto / Clair / Sombre**),
+     affiché par le composant racine avec `<router-outlet />` et, selon `front-ui`, le conteneur de notifications ;
+   - **thème clair et sombre** (section « Thème clair et sombre » d'`angular-conventions`) : `core/theme/theme.service.ts`
+     et sa bascule, mode sombre piloté par la classe `app-dark` (PrimeNG : `darkModeSelector: '.app-dark'`), fond et
+     texte de `styles.scss` sur des jetons qui suivent le thème, pas de flash au chargement ; vérifie les deux thèmes ;
+   - `src/app/core/http/skip-error-toast.ts` (jeton `SKIP_ERROR_TOAST`, section « Erreurs ») ;
    - **mode données simulées** (section « Données simulées » d'`angular-conventions`) : `src/app/core/mock/` avec
      `mock.providers.ts` (tableau vide), `mock.providers.mock.ts` et un `mock-api.interceptor.ts` qui laisse tout passer
      tant qu'aucun jeu de données n'existe, dossier `src/mocks/` (`.gitkeep`), configuration `mock` (build et serve) dans
@@ -67,6 +71,7 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
    2. lancer le backend, puis `npx ng serve` dans `<dossier>` et ouvrir http://localhost:4200 ;
    3. compléter `CLAUDE.md` (section Frontend : version, commandes `ng serve`, `ng test`, `ng build`) ;
    3 bis. schéma d'architecture : `/architecture` pour l'ajouter (ou le créer s'il n'existe pas) ;
+   3 ter. si Impeccable n'est pas installé, propose-le (skill `design`, « Contrôle qualité (Impeccable) ») ;
    4. commiter dans une branche (ex. `chore/add-frontend`) : le dossier du frontend (sans `node_modules`, déjà ignoré
       par le `.gitignore` généré) — `.claude/factory.json` a été modifié par le script : ajoute-le aussi.
 
