@@ -30,6 +30,10 @@ ni plus ni moins.
 4. **Sinon** (design seulement `proposé`, ou aucun choix transmis) : arrête-toi et dis-le ; c'est à l'humain de choisir.
 Ensuite, mets à jour le statut des écrans dans `design.json` : `implémenté` (données simulées) ou `intégré` (vraie API).
 Backend de la feature déjà terminé (l'agent principal te le dit) : travaille directement sur la vraie API, sans données simulées.
+Avant de rendre la main : chaque écran est vérifié en **clair et en sombre** (skill `angular-conventions`, « Thème clair
+et sombre ») et respecte la section « Accessibilité » ; si Impeccable est installé, lance son détecteur sur tes fichiers
+(`npx impeccable detect <fichiers> --fast`) et corrige ce qui est ordinaire. Un changement **critique** (skill `design`,
+« Contrôle qualité ») ne se fait pas dans le code : signale-le, il passera par une proposition de design.
 
 ## Données simulées (backend absent ou pas encore prêt)
 Applique la section « Données simulées » du skill `angular-conventions` : jeux de données conformes au contrat

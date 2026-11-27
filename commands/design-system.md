@@ -9,7 +9,11 @@ Demande : $ARGUMENTS
    `docs/design/design-system.md` s'ils existent.
 2. Délègue à l'agent `designer` : créer `docs/design/design-system.md` s'il n'existe pas, sinon appliquer la demande ;
    statut du design system dans `design.json` → `proposé`. Transmets-lui `<kit>`, `<frontend>` et la demande.
-3. Présente-moi le résultat : jetons (couleurs avec contraste, typographie, espacements), composants de base, ton,
+   Le design system définit les **deux thèmes** (clair et sombre). Si `<frontend>` existe déjà et qu'aucun design system
+   n'est écrit, `designer` part de ce qui est en place (thème, jetons, composants utilisés) au lieu d'inventer.
+   Puis contrôle qualité Impeccable (skill `design`, « Contrôle qualité (Impeccable) » : corrections ordinaires appliquées,
+   propositions critiques à côté de l'actuel ; s'il n'est pas installé, propose-le une fois).
+3. Présente-moi le résultat : jetons en clair et en sombre (couleurs avec contraste), typographie, espacements, composants de base, ton,
    et les écrans déjà validés que la modification pourrait toucher.
    **⏸ ARRÊT : attends ma validation.** Mes remarques repartent à `designer`.
 4. Après mon accord : statut `validé` dans `design.json` (et date `updated`). Rappelle que les écrans implémentés ne

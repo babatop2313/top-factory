@@ -1,5 +1,36 @@
 # Changelog
 
+## v4.8.0 — Qualité du frontend : Impeccable, thème clair et sombre
+Mettre à jour le plugin. Recommandé : installer Impeccable (`/plugin marketplace add pbakaus/impeccable`, puis
+`/plugin install impeccable@impeccable`). Dans un frontend existant : `/top-factory:fix-bug` pour appliquer les règles de
+thème et d'accessibilité (voir l'audit Impeccable de l'écran principal).
+
+- **Contrôle qualité avec Impeccable** (skill `design`, « Contrôle qualité (Impeccable) ») : avant chaque proposition de
+  design (`/design-screen`, `/design-system`, `/design-improve`, `/design-project`, étape Design de `/feature`) et
+  avant la revue des écrans codés. Corrections **ordinaires** appliquées directement et listées ; changements
+  **critiques** (bibliothèque ou grille, design ou jetons validés, structure d'un écran, mode de thème) écrits **à côté**
+  de l'actuel (`mockups/<écran>.proposition.html`, `proposal` dans `design.json`), jamais en silence. Contexte donné à
+  Impeccable : `docs/design/design-system.md` ; les choix `front-ui` restent ceux de l'humain. Installation proposée par
+  `/init`, `/add-frontend` et les commandes de design si le plugin manque.
+- **Comparer et choisir dans le tableau de bord** : l'actuel et la proposition côte à côte (écran ou design system),
+  réponses prêtes à copier « Garder l'actuel » ou « Adopter la proposition » ; écrans marqués « Proposition à comparer ».
+- **Thème clair et sombre conçu** (skill `angular-conventions`) : bascule Auto / Clair / Sombre, mode sombre piloté par la
+  classe `app-dark` (PrimeNG : `darkModeSelector: '.app-dark'`, jamais `system`), fond et texte sur des jetons qui
+  suivent le thème, pas de flash au chargement, contraste AA dans les deux ; design system et maquettes couvrent les
+  deux thèmes ; `/add-frontend` crée le service et la bascule.
+- **Accessibilité** : focus après disparition d'un élément ou rechargement, `role="alert"` de PrimeNG neutralisé pour un
+  bandeau d'information, mouvement réduit, 44 px au toucher sur mobile, croix native du champ de recherche.
+- **Erreurs** : jeton `SKIP_ERROR_TOAST` (404, 409, 503…) pour qu'une erreur affichée par l'écran ne soit jamais
+  notifiée deux fois.
+- **Données simulées** : un seul état partagé (`core/mock/mock-db.ts`), et le mode `mock` démarre connecté avec un
+  utilisateur fictif (`?as=<rôle>`) pour les captures et audits visuels.
+- **Verdict frontend** : bilan du contrôle qualité et liste de vérifications à faire dans le navigateur (parcours,
+  erreurs, clavier, mobile, thèmes, rôles).
+- **`/design-improve`** : demandes courantes prêtes (plus sobre, plus affirmé, épurer, typographie, couleurs, mobile, mode
+  sombre…) ; **`/design-system`** part du frontend existant s'il n'y a pas encore de design system.
+- Reprise d'une partie (`--resume`) : la factory ne choisit jamais seule la branche.
+- Tests : 285 scénarios en mode copie, 288 en mode plugin.
+
 ## v4.7.1 — Vue d'ensemble simple et générale
 Mettre à jour le plugin, puis dans chaque projet : `/top-factory:architecture simplifier la vue d'ensemble selon le
 nouveau modèle`.

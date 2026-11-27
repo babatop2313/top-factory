@@ -628,6 +628,14 @@ mkdir -p "$TOP_FACTORY_HOME/vendor" && : > "$TOP_FACTORY_HOME/vendor/mermaid-$(s
 bash "$H/dashboard.sh"
 ok 'DJ | jq -re .mermaid | grep -q "^vendor/mermaid-.*\.min\.js$"' "afficheur Mermaid installé : chemin relatif fourni à la page"
 ok 'grep -q "securityLevel: .strict." "$TOP_FACTORY_HOME/dashboard.html" && ! grep -q "<script src=\"http" "$TOP_FACTORY_HOME/dashboard.html"' "Mermaid en mode strict, aucun script chargé depuis Internet"
+# v4.8 : proposition critique (contrôle qualité) chargée à côté de la maquette actuelle.
+mkdir -p "$T/docs/design/mockups"
+printf '%s' '{"screens":[{"id":"x-list","status":"validé","mockup":"mockups/x-list.html","proposal":{"mockup":"mockups/x-list.proposition.html","summary":"Mode sombre conçu","by":"impeccable"}},{"id":"y","status":"proposé","proposal":{"mockup":"../../secret.txt"}}]}' > "$T/docs/design/design.json"
+printf '<p>actuel</p>' > "$T/docs/design/mockups/x-list.html"; printf '<p>proposition-sombre</p>' > "$T/docs/design/mockups/x-list.proposition.html"
+bash "$H/dashboard.sh"
+ok '[ "$(DJ | jq -r --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0].design.screens[0].proposalContent")" = "<p>proposition-sombre</p>" ]' "design : proposition critique chargée pour la comparaison"
+ok '[ "$(DJ | jq -r --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0].design.screens[1].proposalContent // \"absent\"")" = absent ]' "design : chemin de proposition hors de docs/design refusé"
+rm -rf "$T/docs/design"
 rm -rf "$T/docs/architecture" "$T/docs/api" "$TOP_FACTORY_HOME/vendor"
 mv "$T/stack.bak" "$T/.claude/stack.json"; rm -rf "$T/.design-sync"
 out=$(printf '%s' '{"prompt":"/top-factory:feature Catalogue --front avec mot de passe secret"}' | bash "$H/events.sh" prompt)

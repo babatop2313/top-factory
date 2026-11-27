@@ -27,6 +27,8 @@ Si `<frontend>` vaut « aucun », signale que le frontend n'existe pas encore : 
    - **Claude Design ou Figma** → rappelle-moi le lien du projet (sinon `/design-link <url>`) : je dessine dans l'outil ;
      quand je te dis qu'un écran est prêt, agent `designer` pour le reporter dans `docs/design/` (skill `design`,
      « Sources externes »).
+   Chaque lot passe par le contrôle qualité Impeccable (skill `design`, « Contrôle qualité (Impeccable) » : corrections ordinaires appliquées,
+   propositions critiques à côté de l'actuel ; s'il n'est pas installé, propose-le une fois).
    Présente-moi les écrans par lots (design system, puis par feature), visibles dans `/dashboard`, onglet Design.
    **⏸ ARRÊTE-TOI et ATTENDS** ma validation de chaque lot ; mes remarques repartent à `designer`. Après mon accord :
    statut `validé` (et date `updated`).

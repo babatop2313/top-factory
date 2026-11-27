@@ -102,7 +102,11 @@ cours mis en avant ; historique « quel agent a fait quoi » (ligne « Bilan : �
 (voies backend et frontend qui se rejoignent à l'intégration) ; schéma d'architecture global proposé par l'architecte
 après l'initialisation, mis à jour à chaque intégration, et un schéma par feature.
 
-## v4.8 — Conventions et qualité du frontend
+## v4.8 — Conventions et qualité du frontend ✅ (livrée)
+Avec Impeccable (contrôle qualité, propositions critiques à comparer) et le thème clair et sombre conçu. Le compte
+automatique des dépendances (test d'architecture) est reporté : il doit être éprouvé sur un projet réel avant d'entrer
+dans les modèles `ArchitectureTest`.
+
 `skipErrorToast`, accessibilité (focus, rôles), données simulées cohérentes entre features, vérification dans un vrai
 navigateur, compte des dépendances par test d'architecture, reprise d'une partie non fusionnée.
 

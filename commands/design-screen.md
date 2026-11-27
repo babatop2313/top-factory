@@ -15,7 +15,10 @@ argument-hint: <écran ou feature, ex. catalog-list>
    l'écran peut quand même être conçu : les données seront à confirmer (dis-le).
 3. Délègue à l'agent `designer` avec `<kit>`, `<frontend>`, l'identifiant d'écran, la spec, le contrat, l'outil de design
    et le lien (projet ou écran).
-4. Présente-moi : le chemin de la fiche et de la maquette, le résumé du design, les choix ouverts, et rappelle que je
+3 bis. Puis contrôle qualité Impeccable (skill `design`, « Contrôle qualité (Impeccable) » : corrections ordinaires appliquées,
+   propositions critiques à côté de l'actuel ; s'il n'est pas installé, propose-le une fois).
+4. Présente-moi : le chemin de la fiche et de la maquette, le résumé du design, le bilan du contrôle qualité (corrigé,
+   proposé à comparer, écarté), les choix ouverts, et rappelle que je
    peux voir la maquette dans le tableau de bord (`/dashboard`, onglet Design du projet).
    **⏸ ARRÊT : attends ma validation.** Mes remarques repartent à `designer` (nouvelle proposition).
 5. Après mon accord : statut `validé` dans `design.json`. Ne commite rien sans mon accord.
