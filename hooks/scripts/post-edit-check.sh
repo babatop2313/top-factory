@@ -32,6 +32,17 @@ warn_once() {
 }
 
 case "$file" in
+  */.gitignore|.gitignore)
+    # Les .env (secrets) doivent rester ignorés, .env.example versionné : une règle comme « !.env » les publierait.
+    gdir=$(dirname "$file")
+    if (cd "$gdir" && git rev-parse --is-inside-work-tree >/dev/null 2>&1); then
+      if ! (cd "$gdir" && git check-ignore -q --no-index .env 2>/dev/null); then
+        echo "Après cette modification, .gitignore n'ignore plus les fichiers .env (secrets) : ils pourraient être commités." >&2
+        echo "Rétablis la protection (par exemple « .env* » puis « !.env.example ») ; seul .env.example, sans valeur, est versionné." >&2
+        exit 2
+      fi
+    fi
+    exit 0 ;;
   *.java)
     brel=$(backend_rel)
     if ! backend=$(backend_dir); then

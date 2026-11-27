@@ -26,6 +26,23 @@ if has 'git[[:space:]]+push'; then
     && block "push forcé interdit."
 fi
 
+# --- Commit sûr : fichiers ajoutés un par un, jamais de .env dans un commit ---
+if has 'git[[:space:]]+add([[:space:]]|$)'; then
+  has 'git[[:space:]]+add([[:space:]]+[^;&|]*)?[[:space:]](-A|--all|-u|--update|\.|\./|:/|\*)'"$END" \
+    && block "ajout en bloc (git add -A, git add ., git add -u…) : ajoute les fichiers un par un (git add -- <chemin>), puis montre la liste des fichiers indexés à l'humain avant le commit."
+  envs=$(printf '%s' "$ncmd" | grep -oE 'git[[:space:]]+add[^;&|]*' | tr -s ' \t' '\n\n' | sed "s/[\"']//g" \
+    | grep -E '(^|/)\.env(\.[A-Za-z0-9_-]+)?$' | grep -vE '(^|/)\.env\.example$' || true)
+  [ -n "$envs" ] \
+    && block "un fichier .env contient des secrets : il ne s'ajoute jamais à Git (seul .env.example, sans valeur, est versionné)."
+fi
+if has 'git[[:space:]]+commit([[:space:]]|$)'; then
+  has 'git[[:space:]]+commit([[:space:]]+[^;&|]*)?[[:space:]](-a|--all|-[A-Za-z]*a[A-Za-z]*)'"$END" \
+    && block "git commit -a ajoute tous les fichiers modifiés : indexe-les un par un (git add -- <chemin>), montre la liste à l'humain, puis git commit sans -a."
+  staged=$(cd "$(project_root)" 2>/dev/null && git diff --cached --name-only 2>/dev/null | tr -d '\r' \
+    | grep -E '(^|/)\.env(\.[A-Za-z0-9_-]+)?$' | grep -vE '(^|/)\.env\.example$' || true)
+  [ -n "$staged" ] && block "un fichier .env est indexé ($(printf '%s' "$staged" | tr '\n' ' ')) : il contient des secrets. Retire-le de l'index (git restore --staged <fichier>) ; s'il est suivi par Git, propose à l'humain git rm --cached <fichier> et la correction de .gitignore."
+fi
+
 # --- Fusion de PR/MR : toujours faite par un humain (vaut aussi pour l'outil PowerShell) ---
 has '(^|[;&|[:space:]])(gh[[:space:]]+pr[[:space:]]+merge|glab[[:space:]]+mr[[:space:]]+merge)'"$END" \
   && block "la fusion d'une Pull Request / Merge Request est réservée à un humain."

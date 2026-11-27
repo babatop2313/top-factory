@@ -1,0 +1,61 @@
+# CI du projet — installée par /add-ci (kit Top Factory).
+# Lance les tests du backend et du frontend sur chaque Pull Request vers develop ou main.
+# À rendre OBLIGATOIRE (fait par un humain) : Settings → Branches (ou Rules → Rulesets) → develop et main →
+# « Require status checks to pass » → cocher « backend » et « frontend ».
+# Aucun vrai secret ici : les variables exigées au démarrage reçoivent des valeurs de test générées à chaque exécution.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: __BACKEND__
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '__JAVA__'
+          cache: maven
+      - name: Valeurs de test des variables exigées au démarrage (jamais de vrais secrets)
+        run: |
+__TEST_ENV__
+      - name: Tests (unitaires, intégration avec Testcontainers, architecture, secrets)
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp verify
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: __FRONTEND__
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '__NODE__'
+          cache: npm
+          cache-dependency-path: __FRONTEND__/package-lock.json
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npx ng build
+      - run: npx ng test --watch=false

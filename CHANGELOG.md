@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.6.0 — Sécurité et fiabilité
+Mettre à jour le plugin. Dans un projet existant :
+- relancer `/top-factory:init` (ou `install.sh`) : `.gitignore` est complété si les `.env` n'y sont pas ignorés, et
+  un `.env` encore suivi par Git est signalé ;
+- demander à Claude d'installer les tests modèles des secrets (skill `conventions`, socle, section Configuration) ;
+- `/top-factory:add-ci`, puis rendre le contrôle obligatoire sur `develop` et `main`.
+
+- **Jamais de `.env` dans Git** : les hooks refusent `git add .env` (seul `.env.example` passe), tout commit qui
+  contient un `.env`, et une modification de `.gitignore` après laquelle `.env` n'est plus ignoré. L'installation
+  complète `.gitignore` et signale un `.env` déjà suivi.
+- **Commit sûr** : `git add -A`, `git add .`, `git add -u` et `git commit -a` sont refusés ; les fichiers s'ajoutent un
+  par un et la liste est montrée avant le commit (`/feature`, `/fix-bug`, règle commune).
+- **Socle des secrets** : `.env` lu au démarrage par `spring.config.import` (racine recommandée, format
+  `.properties`), aucune valeur par défaut pour un secret, `.env.example` sans valeur ; tests modèles
+  `ApplicationYamlSecretsTest` (valeurs par défaut de secrets, secrets en clair, identifiants dans une URL, liste
+  d'exceptions commentée) et `RepositorySecretsHygieneTest` (aucun `.env` suivi, `.gitignore`, `.env.example` sans
+  valeur et complet ; Git requis en CI), installés par `/init-architecture`.
+- **`/add-ci`** : CI GitHub Actions ou GitLab CI (backend `./mvnw verify` avec Testcontainers, frontend lint, build,
+  tests), variables exigées au démarrage remplies de valeurs de test générées, et la marche à suivre pour la rendre
+  obligatoire.
+- **Configuration illisible signalée** au démarrage (`settings.json`, `settings.local.json`, `stack.json`) : Claude Code
+  ignorerait ses permissions sans rien dire.
+- **Commandes proposées à l'humain** : pas de chemin Windows avec `\` après `!` (Git Bash), `Invoke-RestMethod` ou
+  `curl.exe` sous PowerShell, `Get-Credential` plutôt qu'un mot de passe en clair ; procédure de test de fin de partie
+  cohérente avec la spec ; action GitHub refusée → texte prêt à coller.
+- Permissions : lecture de `git ls-files`, `git check-ignore`, de la liste des processus (`tasklist`, `ps`, `jps`).
+- Feuille de route : v4.7 lisibilité (tableau de bord et schémas), v4.8 qualité du frontend, v4.9 multi-backend.
+- Tests : 275 scénarios en mode copie, 278 en mode plugin.
+
 ## v4.5.1 — Cache et MCP seulement là où c'est utile
 Mettre à jour le plugin. Dans un projet existant, déclarer les modules concernés dans `.claude/stack.json`, par
 exemple `"modules": { "redis": ["catalog"], "mcp": ["catalog"] }` (sans ce champ, rien ne change).

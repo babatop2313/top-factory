@@ -170,6 +170,29 @@ chk 2 "migration existante" guard-files.sh "$(jp "$T/backend/src/main/resources/
 chk 0 "nouvelle migration" guard-files.sh "$(jp "$T/backend/src/main/resources/db/migration/V2__new.sql")"
 chk 0 "fichier ordinaire" guard-files.sh "$(jp "$T/CLAUDE.md")"
 
+echo "== guard-bash : commit sûr et fichiers .env"
+chk 2 "git add -A" guard-bash.sh "$(jc 'git add -A')"
+chk 2 "git add ." guard-bash.sh "$(jc 'git add .')"
+chk 2 "git add -u" guard-bash.sh "$(jc 'cd backend && git add -u')"
+chk 2 "git commit -am" guard-bash.sh "$(jc 'git commit -am "fix"')"
+chk 0 "git add d'un fichier précis" guard-bash.sh "$(jc 'git add -- backend/src/main/java/A.java docs/specs/loan.md')"
+chk 0 "git add ./src/A.java (chemin, pas « . »)" guard-bash.sh "$(jc 'git add ./src/A.java')"
+chk 2 "git add .env" guard-bash.sh "$(jc 'git add .env')"
+chk 2 "git add -f backend/.env.local" guard-bash.sh "$(jc 'git add -f backend/.env.local')"
+chk 2 "git add .env.example .env : le .env est refusé" guard-bash.sh "$(jc 'git add .env.example .env')"
+chk 0 "git add .env.example (modèle sans valeur)" guard-bash.sh "$(jc 'git add .env.example')"
+chk 0 "git rm --cached .env (retrait de l'index)" guard-bash.sh "$(jc 'git rm --cached .env backend/.env')"
+chk 0 "git commit --amend n'est pas « -a »" guard-bash.sh "$(jc 'git commit --amend --no-edit')"
+( cd "$T" && git init -q && git config user.email t@t && git config user.name t && printf 'X=1\n' > .env && git add -f .env ) 2>/dev/null
+chk 2 "git commit avec un .env indexé : refusé" guard-bash.sh "$(jc 'git commit -m "feat: x"')"
+( cd "$T" && git rm -q --cached .env && rm -f .env && printf 'X=\n' > .env.example && git add .env.example ) 2>/dev/null
+chk 0 "git commit avec seulement .env.example indexé" guard-bash.sh "$(jc 'git commit -m "feat: x"')"
+printf '.env*\n!.env.example\n' > "$T/.gitignore"
+chk 0 ".gitignore qui protège les .env" post-edit-check.sh "$(jp "$T/.gitignore")"
+printf '.env\n!.env\n' > "$T/.gitignore"
+chk 2 ".gitignore qui n'ignore plus .env (« !.env ») : signalé" post-edit-check.sh "$(jp "$T/.gitignore")"
+rm -rf "$T/.git" "$T/.gitignore" "$T/.env.example"
+
 echo "== guard-bash : verrou factory.json"
 chk 0 "cat factory.json (lecture)" guard-bash.sh "$(jc 'cat .claude/factory.json')"
 chk 0 "lecture avec redirection d'erreurs (2>/dev/null)" guard-bash.sh "$(jc 'cat .claude/factory.json 2>/dev/null')"
@@ -309,6 +332,9 @@ chk_out "profil « top »" "profil de conventions annoncé" session-start.sh '{}
 chk_out "mapping=manuel" "options effectives : valeur par défaut du profil" session-start.sh '{}'
 printf '{ "profile": "top", "integrations": ["postgresql"], "conventions": { "mapping": "mapstruct" } }' > "$T/.claude/stack.json"
 chk_out "mapping=mapstruct (projet)" "options effectives : surcharge du projet" session-start.sh '{}'
+cp "$T/.claude/settings.json" "$T/settings.bak"; printf -- '-fz-{\n "permissions": {}\n}\n' > "$T/.claude/settings.json"
+chk_out ".claude/settings.json n'est pas un JSON valide (début : « -fz-{" "settings.json illisible : signalé au démarrage" session-start.sh '{}'
+mv "$T/settings.bak" "$T/.claude/settings.json"
 printf '{ "profile": "top", "integrations": [], "design": { "tool": "figma", "link": "https://www.figma.com/design/abc" } }' > "$T/.claude/stack.json"
 chk_out "Design : Figma — https://www.figma.com/design/abc" "outil et lien de design (stack.json) annoncés à chaque session" session-start.sh '{}'
 printf '{ "profile": "top", "integrations": [], "design": { "link": "javascript:alert(1)" } }' > "$T/.claude/stack.json"

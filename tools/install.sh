@@ -274,8 +274,27 @@ for line in '*.sh    text eol=lf' '*.conf  text eol=lf'; do
   grep -qxF "$line" "$target/.gitattributes" || printf '%s\n' "$line" >> "$target/.gitattributes"
 done
 
+# --- Secrets : les .env ne sont jamais versionnés (seul .env.example, sans valeur) ---
+touch "$target/.gitignore"
+env_ignored=0
+if git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$target" check-ignore -q --no-index .env 2>/dev/null && env_ignored=1
+else
+  grep -qxE '\.env\*?' "$target/.gitignore" && ! grep -qxF '!.env' "$target/.gitignore" && env_ignored=1
+fi
+if [ "$env_ignored" -eq 0 ]; then
+  printf '\n# Secrets (Top Factory) : fichiers .env jamais versionnés, sauf le modèle sans valeur\n.env*\n!.env.example\n' >> "$target/.gitignore"
+  info ".gitignore : les fichiers .env sont désormais ignorés (.env*, sauf .env.example)."
+fi
+tracked_env=$(git -C "$target" ls-files 2>/dev/null | tr -d '\r' | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -vE '(^|/)\.env\.example$' || true)
+
 echo
 echo "✓ Kit $version installé dans $target (mode $mode)"
+if [ -n "$tracked_env" ]; then
+  echo
+  echo "⚠ Fichiers .env suivis par Git (secrets publiés) : $(printf '%s' "$tracked_env" | tr '\n' ' ')"
+  echo "  Retirez-les de l'index sans les supprimer (git rm --cached <fichier>), commitez, puis changez les secrets qu'ils contenaient."
+fi
 if [ -n "$obsolete" ]; then
   echo
   if [ "$mode" = "plugin" ]; then

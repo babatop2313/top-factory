@@ -97,11 +97,16 @@ début de la session) et le chemin de la référence d'architecture active : un 
    d. **Verdict → ⏸ ARRÊT** : présente-moi le verdict de la revue (points bloquants, majeurs, mineurs, suggestions),
       le nombre de tests et les écarts au plan. **Attends ma décision avant tout commit** : je peux demander des
       corrections (second passage par les agents concernés, puis revue rapide) ou valider tel quel.
-   e. **Commit de la partie**, après mon accord : Avancement mis à jour (partie `terminé — <date>`), puis commit au format
-      Conventional Commits (code, tests, spec, plan, contrat et design de la partie).
+   e. **Commit de la partie**, après mon accord : Avancement mis à jour (partie `terminé — <date>`), fichiers ajoutés
+      **un par un** (`git add -- <chemin>`, jamais de `.env`), `git status --short` et liste des fichiers indexés
+      montrés avant le commit (règle « Commit sûr »), puis commit au format Conventional Commits (code, tests, spec,
+      plan, contrat et design de la partie).
    f. **S'il reste une partie** → **⏸ ARRÊTE-TOI** avec :
-      - ce qui est utilisable maintenant (backend terminé : l'API peut se tester pour de vrai — Swagger, `curl`, avec les
-        rôles du contrat ; frontend terminé : écrans utilisables avec `npx ng serve --configuration mock`) ;
+      - ce qui est utilisable maintenant, avec une **procédure de test qui marche** (règle « Commandes proposées à
+        l'humain ») : backend terminé → l'API se teste pour de vrai, avec un compte et un rôle qui existent selon la
+        spec, les chemins exacts du contrat et des commandes prêtes pour le terminal de l'humain (PowerShell sous
+        Windows) ; frontend terminé → écrans avec `npx ng serve` (ou `--configuration mock`), et ce qu'il faut vérifier
+        dans le navigateur ;
       - la reprise : continuer tout de suite sur cette branche, ou plus tard (par moi ou un autre développeur, après
         poussée et fusion de cette partie) avec `/feature --resume <slug> --front` (ou `--back`).
       Frontend terminé avant le backend : une fois le backend commité, propose `/integrate <slug>`.

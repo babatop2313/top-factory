@@ -1,0 +1,43 @@
+# CI du projet — installée par /add-ci (kit Top Factory).
+# Lance les tests du backend et du frontend sur chaque Merge Request et sur develop / main.
+# À rendre OBLIGATOIRE (fait par un humain) : Settings → Merge requests → « Pipelines must succeed ».
+# Aucun vrai secret ici : les variables exigées au démarrage reçoivent des valeurs de test générées à chaque exécution.
+stages: [test]
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+
+backend:
+  stage: test
+  image: maven:3-eclipse-temurin-__JAVA__
+  services:
+    - name: docker:27-dind          # Testcontainers
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+    MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  cache:
+    key: maven
+    paths: [.m2/repository]
+  script:
+    - cd __BACKEND__
+__TEST_ENV__
+    - chmod +x mvnw && ./mvnw -B -ntp verify
+
+frontend:
+  stage: test
+  image: node:__NODE__
+  cache:
+    key:
+      files: [__FRONTEND__/package-lock.json]
+    paths: [__FRONTEND__/node_modules]
+  script:
+    - cd __FRONTEND__
+    - npm ci
+    - npm run lint --if-present
+    - npx ng build
+    - npx ng test --watch=false

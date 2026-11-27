@@ -49,7 +49,25 @@
 
 ## Configuration
 - `application.yml` **sans secret** : uniquement des références `${VARIABLE}`. Valeurs par défaut autorisées
-  seulement pour ce qui n'est pas secret (`${DB_HOST:localhost}`), jamais pour un mot de passe ou une clé.
+  seulement pour ce qui n'est pas secret (`${DB_HOST:localhost}`, `${APP_TIMEZONE:Africa/Dakar}`), jamais pour un mot
+  de passe, une clé, un jeton ni un identifiant dans une URL. Un secret absent **empêche le démarrage**, avec un
+  message qui nomme la variable (jamais sa valeur).
+- **Fichier `.env`** (poste du développeur) : lu par Spring au démarrage, sans outil supplémentaire :
+  ```yaml
+  spring:
+    config:
+      import: "optional:file:.env[.properties],optional:file:../.env[.properties]"   # racine du dépôt recommandée
+  ```
+  Format `.properties` : `NOM=valeur`, sans guillemets ni `export` (un `\` se double). Les variables d'environnement
+  du système restent prioritaires (CI, production). Un **seul** `.env`, à la racine du dépôt.
+- **`.gitignore`** : `.env*` puis `!.env.example` — jamais une règle qui ré-inclut `.env`. **`.env.example`** est
+  versionné, liste toutes les variables, **sans aucune valeur** (`NOM=` uniquement). Claude ne lit ni n'écrit `.env` :
+  c'est l'humain qui le remplit ; Claude ne l'ajoute jamais à Git (hooks).
+- **Tests modèles du kit** (`<kit>/skills/conventions/references/socle/tests/`, installés par `/init-architecture`
+  dans le package `config` des tests) : `ApplicationYamlSecretsTest` (aucun secret ni valeur par défaut de secret,
+  aucun identifiant dans une URL) et `RepositorySecretsHygieneTest` (aucun `.env` suivi par Git, `.gitignore` correct,
+  `.env.example` sans valeur et complet). On corrige la configuration, jamais ces tests ; une exception (propriété au
+  nom trompeur) s'ajoute à la liste commentée `NOT_SECRETS`, avec l'accord de l'humain.
 - Chaque intégration se configure comme l'indique sa référence (skill `integrations`).
 - Un `@Bean Clock` (`Clock.systemDefaultZone()`) dans la configuration globale, remplacé par `Clock.fixed(...)` dans les tests.
 

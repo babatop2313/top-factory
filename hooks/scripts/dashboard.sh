@@ -996,6 +996,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
           <dt>Des dizaines d'erreurs Testcontainers dans les tests.</dt><dd>Docker Desktop n'est pas démarré.</dd>
           <dt>Après une mise à jour, Claude utilise encore l'ancienne version du kit.</dt><dd>Relance Claude. Si le problème persiste, désinstalle le plugin, supprime son dossier dans <code>~/.claude/plugins/cache/top</code>, puis réinstalle-le.</dd>
           <dt>Aucune notification Windows.</dt><dd>Paramètres Windows › Notifications : autorise « Windows PowerShell », et vérifie que le mode Ne pas déranger est désactivé.</dd>
+          <dt>« Commande bloquée : ajout en bloc » ou « un fichier .env est indexé ».</dt><dd>Voulu : les fichiers s'ajoutent un par un, et un <code>.env</code> (secrets) n'entre jamais dans Git. Un <code>.env</code> déjà suivi se retire avec <code>git rm --cached .env</code> (ton fichier reste sur le disque), puis change les secrets qu'il contenait.</dd>
+          <dt>Une commande <code>! cd C:\\…</code> ne fait rien dans Claude Code.</dt><dd>Après <code>!</code>, la commande passe par Git Bash, qui supprime les <code>\\</code>. Omets le <code>cd</code> (la session est déjà dans le projet) ou écris <code>/c/Users/…</code>.</dd>
+          <dt>Le démarrage signale un <code>settings.json</code> illisible.</dt><dd>Claude Code l'ignore, et avec lui les permissions du kit. <code>git checkout -- .claude/settings.json</code> s'il est versionné, sinon corrige-le à la main.</dd>
           <dt>Un projet n'apparaît pas ici.</dt><dd>Il doit être initialisé (<code>.claude/factory.json</code>) et Claude doit y avoir été ouvert au moins une fois depuis la v4.3.</dd>
         </dl></section>
     </div></div>`;

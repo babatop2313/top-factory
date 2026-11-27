@@ -101,6 +101,25 @@
 6. Verdict présenté à l'humain, qui décide (corrections ou validation) **avant tout commit**.
 7. Commit au format Conventional Commits : `feat(<module>): <description>`.
 
+## Commit sûr
+- Les fichiers s'ajoutent **un par un** (`git add -- <chemin>`) : jamais `git add -A`, `git add .`, `git add -u` ni
+  `git commit -a` (hook). Avant le commit, montrer à l'humain `git status --short` et la liste des fichiers indexés.
+- **Jamais de `.env`** dans un commit (hook) : seul `.env.example`, sans valeur, est versionné. Un `.env` suivi par Git
+  se retire avec `git rm --cached <fichier>`, proposé à l'humain, puis les secrets qu'il contenait sont changés.
+- `.gitignore` garde `.env*` et `!.env.example` : une modification qui ré-inclut `.env` est refusée (hook).
+
+## Commandes proposées à l'humain
+- Windows : une commande précédée de `!` dans le prompt passe par **Git Bash**, qui supprime les `\` d'un chemin
+  Windows. Après `!`, pas de `cd` ni de chemin avec `\` : la session est déjà à la racine du projet ; sinon, chemin en
+  `/c/Users/...`. Une commande pour PowerShell se donne à part, en le disant.
+- PowerShell : `curl` y est un alias d'`Invoke-WebRequest` ; pour l'API, donner `Invoke-RestMethod` (avec
+  `-WebSession` pour les cookies et le jeton CSRF) ou `curl.exe`. Jamais de mot de passe en clair dans une commande :
+  `Get-Credential`.
+- **Procédure de test** (fin d'une partie, correctif) : cohérente avec la spec (comptes et rôles qui existent vraiment,
+  par exemple pas de jeton de développement que la spec refuse), avec les vrais chemins du contrat d'API.
+- Action GitHub ou GitLab refusée (ouvrir une PR, créer une issue) : ne pas insister ni contourner ; donner à
+  l'humain le texte prêt à coller (titre, description) et l'endroit où le faire.
+
 ## Commandes de la factory
 | Commande | Rôle |
 |---|---|
@@ -116,5 +135,6 @@
 | `/add-frontend [dossier]` | Une fois, si besoin : crée le frontend Angular (nom, version, bibliothèque `front-ui`, lint, proxy) |
 | `/add-integration <techno>` | Brancher une technologie (dépendances, configuration, Testcontainers) et la déclarer dans `stack.json` |
 | `/add-mcp-server` | Une fois, si besoin : infrastructure MCP du backend (Spring AI, profil `mcp-local` sécurisé) |
+| `/add-ci [github\|gitlab]` | Une fois : CI qui lance les tests du backend et du frontend sur chaque PR/MR, à rendre obligatoire |
 | `/fix-bug <bug>` | Test qui reproduit → correction → revue |
 | `/review-mr [branche cible]` | Revue des changements de la branche courante |
