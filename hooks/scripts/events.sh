@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Journal d'activité et notifications de la factory (tableau de bord).
-# Appelé par les hooks : events.sh <session_start|session_end|prompt|agent_start|agent_end|stop|notification|permission_request|bash>
+# Appelé par les hooks : events.sh <session_start|session_end|prompt|agent_start|agent_end|stop|notification|permission_request|bash|file>
 #
 #  - écrit un événement dans ${TOP_FACTORY_HOME:-~/.top-factory}/events/<projet>.jsonl et inscrit le projet
 #    dans projects.json ;
@@ -13,6 +13,8 @@
 # Ne bloque JAMAIS Claude (exit 0 dans tous les cas) et n'écrit RIEN sur la sortie standard
 # (pour SessionStart, la sortie serait injectée dans le contexte de Claude).
 # Les notifications ne contiennent que le projet, l'étape et la branche : jamais de code ni de texte de Claude.
+# Historique « quel agent a fait quoi » : fichiers modifiés par chaque agent (chemins seulement) et sa ligne
+# « Bilan : … » (une phrase écrite pour le journal) ; rien d'autre de ses messages n'est gardé.
 set -uo pipefail
 exec 3>&1 1>/dev/null            # toute sortie accidentelle part dans le vide
 source "$(dirname "$0")/lib.sh"
@@ -29,9 +31,15 @@ name=$(basename "$root")
 pid="$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')-$(printf '%s' "$root" | cksum | cut -d' ' -f1)"
 branch=$(git -C "$root" symbolic-ref --short -q HEAD 2>/dev/null || git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 j() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null | head -c 2000; }
-first_line() { printf '%s\n' "$1" | sed -E 's/^[[:space:]#>*]+//' | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
 
 title=""; detail=""; ev=""; a=""; aid=""
+run="$home/run"; sid="$(j .session_id | tr -d '\n' | tr -c 'A-Za-z0-9._-' '-')"
+rel_path() {
+  local f r; f="$(printf '%s' "$1" | tr '\\' '/')"; r="$(printf '%s' "$root" | tr '\\' '/')"
+  command -v cygpath >/dev/null 2>&1 && [ -n "$f" ] && f="$(cygpath -u "$f" 2>/dev/null || printf '%s' "$f")"
+  case "$f" in "$r"/*) f="${f#"$r"/}" ;; *) f="$(basename "$f")" ;; esac
+  printf '%s' "$f" | tr -d '\000-\037' | cut -c1-200
+}
 # Type d'agent : champ agent_type ; à défaut (agent repris, par exemple), retrouvé par son identifiant agent_id.
 agent_of() {
   local t; t="$(j '.agent_type // .subagent_type')"; t="${t##*:}"
@@ -42,8 +50,18 @@ agent_of() {
   printf '%s' "$t"
 }
 case "$kind" in
+  file)
+    # PostToolUse (Edit|Write) : chemin du fichier modifié, rattaché à l'agent qui travaille (identifiant fourni par
+    # Claude Code, sinon dernier agent ouvert de la session, sinon la session principale). Aucun événement écrit ici.
+    mkdir -p "$run" 2>/dev/null || exit 0
+    f="$(rel_path "$(j '.tool_input.file_path // .tool_input.notebook_path')")"; [ -n "$f" ] || exit 0
+    who_id="$(j .agent_id | tr -d '\n' | tr -c 'A-Za-z0-9._-' '-')"
+    [ -n "$who_id" ] || who_id="$(tail -n 1 "$run/$sid.open" 2>/dev/null)"
+    printf '%s\n' "$f" >> "$run/$sid.${who_id:-main}.files" 2>/dev/null
+    exit 0 ;;
   session_start)
-    ev="session_start"; title="Session ouverte"; detail="$(j .source)" ;;
+    ev="session_start"; title="Session ouverte"; detail="$(j .source)"
+    find "$run" -type f -mtime +2 -delete 2>/dev/null ;;
   session_end)
     ev="session_end"; title="Session fermée"; detail="$(j .reason)" ;;
   prompt)
@@ -56,10 +74,23 @@ case "$kind" in
       case "$(j .prompt | head -n 1)" in *--resume*) detail="reprise${detail:+ — $detail}" ;; esac
     fi ;;
   agent_start)
-    aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_start"; if [ -n "$a" ]; then title="Agent $a au travail"; else title="Un agent se met au travail"; fi ;;
+    aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_start"; if [ -n "$a" ]; then title="Agent $a au travail"; else title="Un agent se met au travail"; fi
+    if [ -n "$aid" ] && mkdir -p "$run" 2>/dev/null; then printf '%s\n' "$(printf '%s' "$aid" | tr -c 'A-Za-z0-9._-' '-')" >> "$run/$sid.open"; fi ;;
   agent_end)
     aid="$(j .agent_id)"; a="$(agent_of)"; ev="agent_end"; if [ -n "$a" ]; then title="Agent $a a terminé"; else title="Un agent a terminé"; fi
-    detail="$(first_line "$(j .last_assistant_message)")" ;;
+    # Seule la ligne « Bilan : … » de l'agent est gardée (une phrase, sans code), jamais le reste de son message.
+    detail="$(printf '%s' "$input" | jq -r '.last_assistant_message // empty' 2>/dev/null | tr -d '\r' \
+      | grep -iE '^[[:space:]>*_-]*(\*\*)?bilan[[:space:]]*(\*\*)?[[:space:]]*:' | tail -n 1 \
+      | sed -E 's/^[[:space:]>*_-]*(\*\*)?[Bb][Ii][Ll][Aa][Nn][[:space:]]*(\*\*)?[[:space:]]*:[[:space:]]*(\*\*)?[[:space:]]*//; s/`//g; s/\*\*//g' | cut -c1-220)"
+    akey="$(printf '%s' "$aid" | tr -c 'A-Za-z0-9._-' '-')"
+    if [ -n "$akey" ] && [ -f "$run/$sid.$akey.files" ]; then
+      files_json="$(awk '!seen[$0]++' "$run/$sid.$akey.files" | head -n 40 | jq -Rcs 'split("\n") | map(select(length > 0))')"
+      nfiles="$(awk '!seen[$0]++' "$run/$sid.$akey.files" | wc -l | tr -d ' ')"
+      rm -f "$run/$sid.$akey.files"
+    fi
+    if [ -n "$akey" ] && [ -f "$run/$sid.open" ]; then
+      grep -vxF "$akey" "$run/$sid.open" > "$run/$sid.open.tmp" 2>/dev/null; mv "$run/$sid.open.tmp" "$run/$sid.open" 2>/dev/null
+    fi ;;
   stop)
     msg="$(j .last_assistant_message)"
     # Attente de l'humain : symbole « ⏸ » (règle de la factory) ou, à défaut, une demande explicite à la fin du message.
@@ -71,7 +102,7 @@ case "$kind" in
       [ -n "$detail" ] || detail="$(printf '%s\n' "$msg" | grep -v '^[[:space:]]*$' | tail -n 1 | sed -E 's/^[[:space:]#>*]+//')"
       detail="${detail#⏸}"; detail="${detail#️}"; detail="$(printf '%s' "$detail" | sed -E 's/^[[:space:]]+//' | cut -c1-200)"
     else
-      ev="turn_end"; title="Claude a terminé — à toi de jouer"; detail="$(first_line "$msg")"
+      ev="turn_end"; title="Claude a terminé — à toi de jouer"
     fi ;;
   permission_request)
     # Ce que Claude demande, sans le contenu : chemin du fichier (dans le projet), nom de la commande (au plus trois mots
@@ -128,8 +159,10 @@ esac
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 file="$home/events/$pid.jsonl"
 jq -cn --arg ts "$ts" --arg k "$ev" --arg t "$title" --arg d "$detail" --arg b "$branch" --arg s "$(j .session_id)" \
-  --arg ag "$a" --arg aid "$aid" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}
+  --arg ag "$a" --arg aid "$aid" --argjson files "${files_json:-null}" --arg nf "${nfiles:-}" \
+  '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}
     + (if $aid != "" then {agentId: $aid} else {} end)
+    + (if $files != null then {files: $files, nfiles: ($nf | tonumber? // ($files | length))} else {} end)
     + (if ($ag | startswith("cmd:")) then {command: ($ag | ltrimstr("cmd:"))} elif $ag != "" then {agent: $ag} else {} end)' \
   >> "$file" 2>/dev/null
 # Rétention : 1000 derniers événements par projet.

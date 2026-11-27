@@ -48,6 +48,8 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    - la procédure de développement local (section « Développement local »), pour Windows, macOS et Linux ;
    - les modules concernés et la suite : la feature qui l'utilisera, à lancer avec `/feature`. Un autre module en aura
      besoin plus tard ? Il s'ajoute au champ `modules`, avec mon accord, quand une spec le justifie.
+   - **schéma d'architecture** : si `docs/architecture/overview.md` existe, propose sa mise à jour (`/architecture`,
+     agent `architect` : nouvelle technologie et ses modules) ; sinon, propose de le créer.
    Si la référence était « non testée » et que tout a fonctionné, propose de la passer à « testée » **dans le kit**
    (`top-factory`), avec les ajustements découverts : jamais dans la copie du projet, remplacée à chaque mise à jour.
 

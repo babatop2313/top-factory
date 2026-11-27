@@ -53,3 +53,8 @@ feature reste **identique** à celui qui parlera à la vraie API : seule la conf
 ## Réponse finale
 Fichiers créés ou modifiés (par dossier), routes ajoutées (chemin, composant, guard), écrans et leur nouveau statut,
 endpoints servis par des données simulées, résultat de `ng build` et du lint, écarts éventuels au plan ou au design.
+
+## Bilan (journal du tableau de bord)
+Termine **toujours** ta réponse par une ligne seule : `Bilan : <une phrase>` — ce que tu as fait, chiffré si possible
+(par exemple « Bilan : 23 fichiers, emprunt et retour, 3 cas d'usage, compilation OK »). Une phrase en français, sans code,
+sans chemin complet, sans secret ni donnée personnelle : c'est la seule partie de ton message gardée dans l'historique.

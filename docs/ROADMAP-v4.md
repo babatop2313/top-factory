@@ -96,7 +96,7 @@ parties backend et frontend codées ensemble ou l'une après l'autre (`/feature 
 Aucun `.env` commité (hooks), socle des secrets (`.env` lu par Spring, tests modèles), `/add-ci`, configuration
 illisible signalée, commit sûr, commandes et procédures de test fiables sous Windows.
 
-## v4.7 — Lisibilité : tableau de bord et schémas
+## v4.7 — Lisibilité : tableau de bord et schémas ✅ (livrée)
 Rendu Markdown et Mermaid (Mermaid téléchargé une fois dans `~/.top-factory/`), PDF soigné ; projets et feature en
 cours mis en avant ; historique « quel agent a fait quoi » (ligne « Bilan : » de chaque agent) ; workflow en graphe
 (voies backend et frontend qui se rejoignent à l'intégration) ; schéma d'architecture global proposé par l'architecte

@@ -9,6 +9,9 @@ Le tableau de bord est une page locale, `~/.top-factory/dashboard.html` (ou `$TO
 régénérée par les hooks de la factory à chaque événement et rechargée toute seule toutes les 15 secondes.
 Les données restent sur le poste. `<kit>` est annoncé au début de la session.
 
+0. **Afficheur de schémas** : si `~/.top-factory/vendor/mermaid-*.min.js` n'existe pas, lance d'abord
+   `bash "<kit>/hooks/scripts/dashboard.sh" --vendor` (téléchargement unique, empreinte SHA-256 vérifiée) ; en cas
+   d'échec (pas d'Internet), dis-le : les schémas s'afficheront en texte.
 1. **Sans argument** : lance `bash "<kit>/hooks/scripts/dashboard.sh" --open` (régénère et ouvre la page dans le
    navigateur), puis résume en quelques lignes, à partir de `~/.top-factory/projects.json` et du dernier événement de
    chaque journal (`~/.top-factory/events/<id>.jsonl`, lu avec l'outil Read) : les projets qui **attendent une action**

@@ -69,7 +69,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude-plugin/plugin.json` | Manifeste du plugin `top-factory` (nom, **version**) |
 | `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/add-ci`, `/integrate`, `/design-project`, `/design-system`, `/design-screen`, `/design-improve`, `/design-link`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/add-ci`, `/architecture`, `/integrate`, `/design-project`, `/design-system`, `/design-screen`, `/design-improve`, `/design-link`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
 | `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids ; front-ui, front-forms) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
@@ -226,6 +226,17 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
   exporter en PDF ; des **réponses prêtes à copier** pour valider, valider avec remarques ou demander des corrections)
   et **Documentation** (principe, workflow, toutes les commandes et tous les agents, lus dans le kit installé,
   garde-fous, répondre à distance avec Remote Control, dépannage).
+- **Lisibilité (v4.7)** :
+  - projets **actifs** et feature **en cours** mis en avant, avec l'agent qui travaille et depuis quand ;
+  - **parcours en graphe** de chaque feature : tronc commun (spec, plan), voie **backend** et voie **frontend**
+    (design, code, tests, revue, commit) qui se rejoignent à l'**intégration**, d'après la section « Avancement » du plan ;
+  - **qui a fait quoi** : chaque agent, sa durée, ses fichiers modifiés (chemins seulement) et sa ligne « Bilan : »
+    (seule partie de ses messages gardée) ;
+  - **schémas Mermaid** : architecture globale (`/top-factory:architecture`, onglet **Architecture**, proposée après
+    l'initialisation et mise à jour après chaque intégration) et schémas de chaque feature (section « Schémas » du plan) ;
+    Mermaid est téléchargé une seule fois dans `~/.top-factory/vendor/` (empreinte vérifiée) puis utilisé hors ligne ;
+  - documents mieux rendus (tableaux alignés, code, schémas) et **PDF** soigné : en-tête, sommaire, numéros de page,
+    sans coupure au milieu d'un tableau ou d'un schéma.
 - **Notifications**, seulement quand c'est utile : ta décision est nécessaire pour continuer, Claude attend ton
   autorisation (avec ce qui est demandé : « modifier un fichier (catalog-list.page.ts) », « lancer une commande (npm) »,
   jamais le contenu ; on y répond dans la session), tout est terminé, ou un agent passe la main à un autre. Message explicite (« Ta décision est

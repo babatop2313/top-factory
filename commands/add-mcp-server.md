@@ -58,7 +58,8 @@ avec Write et Edit uniquement, et respecte l'architecture active.
 6. **Déclaration** : ajoute les modules choisis au champ `modules` de `.claude/stack.json`
    (`"modules": { "mcp": ["catalog"] }`), avec Edit et mon accord. Le hook refusera un outil MCP dans un autre module.
 
-7. **Clôture** : commit `chore(mcp): infrastructure du serveur MCP (Spring AI, profil mcp-local)`, puis donne-moi :
+7. **Clôture** : commit `chore(mcp): infrastructure du serveur MCP (Spring AI, profil mcp-local)`, puis donne-moi (et
+   propose la mise à jour du schéma d'architecture, `/architecture`, s'il existe : serveur MCP et modules concernés) :
    - la version de Spring AI retenue et pourquoi ;
    - les fichiers créés ou modifiés ;
    - le résultat des tests ;

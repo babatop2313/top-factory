@@ -500,7 +500,7 @@ if [ ! -e "$I/p/.claude/commands/init.md" ] && [ -f "$I/p/.claude/commands/featu
 rm -rf "$I"
 
 echo "== tableau de bord : journal, notifications, page"
-export TOP_FACTORY_HOME="$T/tfh" TOP_FACTORY_NOTIFY=dry TOP_FACTORY_DASHBOARD_SYNC=1
+export TOP_FACTORY_HOME="$T/tfh" TOP_FACTORY_NOTIFY=dry TOP_FACTORY_DASHBOARD_SYNC=1 TOP_FACTORY_VENDOR=off
 ok() { if eval "$1"; then pass=$((pass+1)); echo "  ✓ $2"; else fail=$((fail+1)); echo "  ✗ $2"; fi; }
 evlast() { tail -n 1 "$TOP_FACTORY_HOME"/events/*.jsonl | jq -r "$1"; }
 nlog() { cat "$TOP_FACTORY_HOME/notify.log" 2>/dev/null; }
@@ -518,7 +518,7 @@ n=$(nlines)
 jq -cn '{last_assistant_message: "Je te présenterai le plan quand l architecte aura fini."}' | bash "$H/events.sh" stop
 ok '[ "$(evlast .kind)" = turn_end ] && [ "$(nlines)" = "$n" ]' "fin de tour avec un agent encore au travail : aucune notification"
 printf '%s' '{"agent_type":"architect","last_assistant_message":"## Plan\nLe plan est prêt."}' | bash "$H/events.sh" agent_end
-ok '[ "$(evlast .detail)" = "Plan" ]' "agent_end : première ligne du message, sans marques Markdown"
+ok '[ "$(evlast .detail)" = "" ]' "agent_end sans ligne « Bilan » : aucun texte de l'agent gardé"
 jq -cn '{last_assistant_message: "Plan prêt.\n\n⏸ J attends ta validation du plan </script>"}' | bash "$H/events.sh" stop
 ok '[ "$(evlast .kind)" = validation ]' "arrêt ⏸ → validation requise"
 ok '[ "$(evlast .detail)" = "J attends ta validation du plan </script>" ]' "validation : texte sans le symbole ⏸"
@@ -534,6 +534,16 @@ for a in architect reviewer reviewer; do printf '{"agent_type":"%s"}' "$a" | bas
 printf '%s' '{"agent_type":"designer","agent_id":"ag-42"}' | bash "$H/events.sh" agent_start
 printf '%s' '{"agent_id":"ag-42","last_assistant_message":"Maquettes prêtes."}' | bash "$H/events.sh" agent_end
 ok '[ "$(evlast .title)" = "Agent designer a terminé" ] && [ "$(evlast .agent)" = designer ]' "agent repris sans type : retrouvé par son identifiant"
+# Historique « quel agent a fait quoi » : fichiers modifiés (chemins relatifs) et ligne « Bilan : ».
+printf '%s' '{"session_id":"h1","agent_type":"backend-dev","agent_id":"ag-77"}' | bash "$H/events.sh" agent_start
+for f in A.java B.java A.java; do jq -cn --arg f "$T/backend/src/main/java/$f" '{session_id: "h1", tool_name: "Write", tool_input: {file_path: $f, content: "secret-contenu"}}' | bash "$H/events.sh" file; done
+jq -cn --arg f "$T/docs/specs/x.md" '{session_id: "h1", agent_id: "ag-77", tool_input: {file_path: $f}}' | bash "$H/events.sh" file
+n=$(wc -l < "$TOP_FACTORY_HOME"/events/*.jsonl)
+printf '%s' '{"session_id":"h1","agent_type":"backend-dev","agent_id":"ag-77","last_assistant_message":"Voici le code `x = 1`.\n\n**Bilan :** 3 fichiers, `BorrowBookService` et sa migration.\n"}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .detail)" = "3 fichiers, BorrowBookService et sa migration." ]' "agent_end : seule la ligne « Bilan » est gardée, sans Markdown"
+ok '[ "$(evlast ".files | join(\",\")")" = "backend/src/main/java/A.java,backend/src/main/java/B.java,docs/specs/x.md" ] && [ "$(evlast .nfiles)" = 3 ]' "agent_end : fichiers modifiés par l'agent (chemins relatifs, sans doublon)"
+ok '! grep -q "secret-contenu\|x = 1" "$TOP_FACTORY_HOME"/events/*.jsonl' "historique : ni contenu de fichier ni texte de l'agent hors bilan"
+ok '[ "$(wc -l < "$TOP_FACTORY_HOME"/events/*.jsonl)" -eq $((n + 1)) ]' "modification de fichier : aucun événement à elle seule"
 printf '%s' '{"last_assistant_message":"Fini."}' | bash "$H/events.sh" agent_end
 ok '[ "$(evlast .title)" = "Un agent a terminé" ]' "agent sans type ni identifiant : libellé neutre (plus « inconnu »)"
 printf '%s' '{}' | bash "$H/events.sh" prompt
@@ -607,6 +617,18 @@ jq '.design = {tool: "claude-design"}' "$T/stack.bak" > "$T/.claude/stack.json"
 mkdir -p "$T/.design-sync"; printf '{"project":{"url":"https://claude.ai/design/p/123"},"other":"javascript:x"}' > "$T/.design-sync/config.json"
 bash "$H/dashboard.sh"
 ok '[ "$(DJ | jq -r --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0].designTool | .tool + \" \" + .syncLink")" = "claude-design https://claude.ai/design/p/123" ]' "design : outil du projet (stack.json) et projet épinglé par /design-sync, lu seulement"
+# v4.7 : schéma d'architecture et contrats d'API dans les documents ; afficheur Mermaid local, jamais téléchargé en test.
+mkdir -p "$T/docs/architecture" "$T/docs/api"
+printf '> Statut : proposé — 2026-11-27\n# Architecture\n```mermaid\nflowchart LR\n  A --> B\n```\n' > "$T/docs/architecture/overview.md"
+printf '# Contrat\n' > "$T/docs/api/loan.md"
+bash "$H/dashboard.sh"
+ok '[ "$(DJ | jq -r --arg n "$(basename "$T")" "[.projects[] | select(.name == \$n)][0].docs | map(.rel) | index(\"docs/architecture/overview.md\") != null and index(\"docs/api/loan.md\") != null")" = true ]' "documents : schéma d'architecture et contrats d'API lisibles dans la page"
+ok '[ "$(DJ | jq -r .mermaid)" = "" ] && [ ! -d "$TOP_FACTORY_HOME/vendor" ]' "afficheur Mermaid absent : schémas en texte, aucun téléchargement (TOP_FACTORY_VENDOR=off)"
+mkdir -p "$TOP_FACTORY_HOME/vendor" && : > "$TOP_FACTORY_HOME/vendor/mermaid-$(sed -nE 's/^MERMAID_VERSION="([^"]+)"/\1/p' "$H/dashboard.sh").min.js"
+bash "$H/dashboard.sh"
+ok 'DJ | jq -re .mermaid | grep -q "^vendor/mermaid-.*\.min\.js$"' "afficheur Mermaid installé : chemin relatif fourni à la page"
+ok 'grep -q "securityLevel: .strict." "$TOP_FACTORY_HOME/dashboard.html" && ! grep -q "<script src=\"http" "$TOP_FACTORY_HOME/dashboard.html"' "Mermaid en mode strict, aucun script chargé depuis Internet"
+rm -rf "$T/docs/architecture" "$T/docs/api" "$TOP_FACTORY_HOME/vendor"
 mv "$T/stack.bak" "$T/.claude/stack.json"; rm -rf "$T/.design-sync"
 out=$(printf '%s' '{"prompt":"/top-factory:feature Catalogue --front avec mot de passe secret"}' | bash "$H/events.sh" prompt)
 ok '[ "$(evlast .command)" = feature ] && [ "$(evlast .detail)" = "périmètre : frontend" ] && ! tail -n 1 "$TOP_FACTORY_HOME"/events/*.jsonl | grep -q secret' "commande de la factory reconnue (nom et périmètre seulement, jamais le texte)"

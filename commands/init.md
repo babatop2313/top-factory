@@ -48,6 +48,9 @@ et tu ne touches jamais à `.claude/settings.local.json`. Si le script échoue, 
      1. relancer Claude (`/exit`, puis `claude` à la racine du projet) : les permissions et les hooks du projet ne se
         chargent qu'au démarrage ; le message de début de session doit annoncer `TOP FACTORY`, l'architecture et les dossiers ;
      2. compléter `CLAUDE.md` (contexte métier, règles, commandes) — propose de m'aider après le redémarrage ;
+     2 bis. **schéma d'architecture global** : `/top-factory:architecture` — l'architecte propose, à partir de mes choix
+        (architecture, dossiers, intégrations, modules prévus dans `CLAUDE.md`), un schéma Mermaid visible dans
+        `/top-factory:dashboard` (onglet Architecture), que je valide ou fais modifier ;
      3. **seulement si `--detect` indiquait `ArchitectureTest : absent`** : `/top-factory:init-architecture <premier-module>`
         (ex. `catalog`). S'il existe déjà, le projet est initialisé : ne propose pas cette commande, les modules existants
         évoluent par `/top-factory:feature` ;
